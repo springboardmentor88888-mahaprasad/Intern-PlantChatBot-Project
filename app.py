@@ -1,3 +1,25 @@
+"""
+Plant Disease Predictor 🌱
+
+How to Run This Application:
+1.Install Virtual Environment
+python -m venv .venv
+2. Activate virtual environment
+   venv\\Scripts\\activate
+
+3. Install required packages
+   pip install streamlit
+
+4. Run the application
+   streamlit run app.py
+
+Expected Output:
+- Streamlit web application opens in browser
+- Title displayed: Plant Disease Predictor
+- Option to upload a leaf image (jpg / jpeg / png)
+- After uploading an image, a predicted disease is displayed
+"""
+
 import streamlit as st
 import random
 
