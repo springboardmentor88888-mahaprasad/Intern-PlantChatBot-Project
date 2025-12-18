@@ -1,0 +1,11 @@
+# Do NOT push virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Do NOT push Jupyter notebook
+train.ipynb
+.ipynb_checkpoints/
+
+README.md
