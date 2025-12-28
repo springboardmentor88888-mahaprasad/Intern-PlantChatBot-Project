@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+
+# Virtual env
+venv/
+
+# Secrets / models
+kaggle.json
+*.pth
