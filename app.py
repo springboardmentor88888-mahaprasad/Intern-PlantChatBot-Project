@@ -27,7 +27,6 @@ def load_model():
     model.eval()
     return model, class_names
 
-# 🔴 THIS LINE IS CRITICAL (DO NOT MOVE)
 model, class_names = load_model()
 
 # ---------------- TRANSFORM ----------------
@@ -40,41 +39,52 @@ transform = transforms.Compose([
     )
 ])
 
-if uploaded_file is None:
-    st.warning("Please upload a leaf image")
-    st.stop()
 # ---------------- UI ----------------
 st.title("🌿 Plant Disease Predictor")
 st.write("Upload a leaf image to detect plant disease")
 
-uploaded_file = st.file_uploader("Choose an image", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader(
+    "Choose a leaf image",
+    type=["jpg", "png", "jpeg"]
+)
 
+# ---------------- IMAGE PREDICTION ----------------
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, use_column_width=True)
+    st.image(image, width=350)
 
     img_tensor = transform(image).unsqueeze(0)
 
     with torch.no_grad():
         outputs = model(img_tensor)
         probs = F.softmax(outputs, dim=1)[0]
-        
-        top3 = torch.topk(probs,3)
-        
-        st.subheader("Top Predictions")
+
+        top3 = torch.topk(probs, 3)
+
+        st.subheader("🔍 Top Predictions")
         for i in range(3):
             label = class_names[top3.indices[i].item()]
             conf = top3.values[i].item() * 100
-            st.write(f"{i+1}.{label} - {conf:.2f}%")
+            st.write(f"{i+1}. {label} — {conf:.2f}%")
 
-    st.success(f"Prediction: **{class_names[pred_idx.item()]}**")
-    st.info(f"Confidence: **{confidence.item() * 100:.2f}%**")
+        # Best prediction
+        pred_idx = torch.argmax(probs)
+        best_label = class_names[pred_idx.item()]
+        confidence = probs[pred_idx].item()
+
+        st.success(f"Prediction: *{best_label}*")
+        st.info(f"Confidence: *{confidence * 100:.2f}%*")
+
+# ---------------- TEXT DIAGNOSIS ----------------
 st.markdown("---")
-st.subheader("Describe Plant Symptoms(Optional)")
-user_text = st.text_input("Describe plant symptoms(e.g. yellow leaves, brown spots)")
+st.subheader("📝 Describe Plant Symptoms (Optional)")
 
-def text_based_diagnosis(user_text):
-    text = user_text.lower()
+user_text = st.text_input(
+    "Describe symptoms (e.g. yellow leaves, brown spots)"
+)
+
+def text_based_diagnosis(text):
+    text = text.lower()
 
     if "yellow" in text:
         return "Possible Nitrogen Deficiency"
@@ -86,12 +96,20 @@ def text_based_diagnosis(user_text):
         return "Possible Pest Attack"
     else:
         return "No clear disease detected from text symptoms"
+
 if user_text:
     text_prediction = text_based_diagnosis(user_text)
-    st.warning(f"Text-based diagnosis:**{text_prediction}**")
-if user_text and uploaded_file:
-    st.markdown("###Final diagnosis summary")
+    st.warning(f"Text-based diagnosis: *{text_prediction}*")
+
+# ---------------- FINAL SUMMARY ----------------
+if uploaded_file and user_text:
+    st.markdown("### ✅ Final Diagnosis Summary")
     st.success(
-        f"Image-based: {class_names[pred_idx.item()]}\n\n"
-        
+        f"""
+        *Image-based Diagnosis:* {best_label}  
+        *Confidence:* {confidence * 100:.2f}%  
+
+        *Text-based Insight:* {text_prediction}
+        """
     )
+    
