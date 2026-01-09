@@ -1,37 +1,14 @@
+# backend/treatments.py
 TREATMENTS = {
-    "Tomato___Late_blight": {
-        "cause": "Fungal infection",
-        "treatment": "Use copper-based fungicide",
-        "prevention": "Avoid overhead watering"
-    },
-    "Potato___Early_blight": {
-        "cause": "Fungal disease",
-        "treatment": "Apply chlorothalonil spray",
-        "prevention": "Crop rotation"
-    },
-    "Tomato___Septoria_leaf_spot": {
-        "cause": "Fungal infection",
-        "treatment": "Apply copper fungicide or chlorothalonil",
-        "prevention": "Avoid wet leaves and remove plant debris"
-    },
-     "Potato___Early_blight": {
-        "cause": "Fungal disease",
-        "treatment": "Apply chlorothalonil or azoxystrobin",
-        "prevention": "Crop rotation and proper spacing"
-    },
-     "Potato___Late_blight": {
-        "cause": "Severe fungal infection",
-        "treatment": "Use fungicides containing metalaxyl",
-        "prevention": "Use certified seeds and destroy infected plants"
-    },
-     "Pepper___Bacterial_spot": {
-        "cause": "Bacterial infection",
-        "treatment": "Apply copper-based bactericides",
-        "prevention": "Use disease-free seeds and avoid overhead irrigation"
-    },
-      "Corn___Common_rust": {
-        "cause": "Fungal disease",
-        "treatment": "Apply fungicides like propiconazole",
-        "prevention": "Grow resistant varieties and monitor humidity"
-    },
+"Tomato___Late_blight": "Use copper-based fungicide. Avoid overhead watering.",
+"Tomato___Early_blight": "Remove infected leaves. Apply mancozeb or chlorothalonil.",
+"Potato___Late_blight": "Spray fungicide and remove infected plants immediately.",
+"Potato___Early_blight": "Apply appropriate fungicide and practice crop rotation.",
+"Pepper___Bacterial_spot": "Use disease-free seeds and copper sprays.",
+"Healthy": "No treatment needed. Maintain proper irrigation and nutrition."
 }
+
+def get_treatment(disease_name):
+    return TREATMENTS.get(
+        disease_name, 
+        "No specific treatment found. Consult an agricultural expert.")
