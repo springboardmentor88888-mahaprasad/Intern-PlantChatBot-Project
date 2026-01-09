@@ -1,43 +1,122 @@
 import streamlit as st
-import numpy as np
-from tensorflow.keras.models import load_model
+import torch
+import torch.nn.functional as F
+from torchvision import models, transforms
 from PIL import Image
 
-st.title("🌿 Plant Disease Predictor")
+from backend.treatments import get_treatment
+from backend.chatbot import text_diagnosis   # ✅ NEW IMPORT
 
-# Load model
-model = load_model("models/plant_disease_model.h5")
+# ---------------- CONFIG ----------------
+MODEL_PATH = "models/image_model.pth"
+IMG_SIZE = 224
 
-# Class names (EDIT if needed)
-class_names = [
-    "Tomato___Late_blight",
-    "Tomato___Early_blight",
-    "Tomato___Leaf_Mold",
-    "Tomato___Septoria_leaf_spot",
-    "Tomato___Bacterial_spot",
-    "Tomato___YellowLeaf__Curl_Virus",
-    "Tomato___mosaic_virus",
-    "Tomato___healthy"
-]
+st.set_page_config(
+    page_title="PlantDocBot",
+    page_icon="🌿",
+    layout="centered"
+)
 
-uploaded_file = st.file_uploader("Upload a leaf image", type=["jpg", "jpeg", "png"])
+# ---------------- LOAD MODEL ----------------
+def load_model():
+    checkpoint = torch.load(MODEL_PATH, map_location="cpu")
+    state_dict = checkpoint["model_state_dict"]
+
+    num_classes = state_dict["fc.weight"].shape[0]
+    class_names = checkpoint.get("class_names", [])[:num_classes]
+
+    model = models.resnet50(pretrained=False)
+    model.fc = torch.nn.Linear(2048, num_classes)
+    model.load_state_dict(state_dict, strict=True)
+    model.eval()
+
+    return model, class_names
+
+
+model, class_names = load_model()
+
+# ---------------- IMAGE TRANSFORM ----------------
+transform = transforms.Compose([
+    transforms.Resize((IMG_SIZE, IMG_SIZE)),
+    transforms.ToTensor(),
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+])
+
+# ---------------- UI ----------------
+st.title("🌿 PlantDocBot – AI Plant Disease Diagnosis")
+st.write("Upload a leaf image or describe plant symptoms to get diagnosis and treatment.")
+
+# ---------------- IMAGE INPUT ----------------
+uploaded_file = st.file_uploader(
+    "📷 Upload a plant leaf image",
+    type=["jpg", "jpeg", "png"]
+)
+
+# ---------------- TEXT INPUT (CHATBOT) ----------------
+st.markdown("---")
+st.subheader("💬 Describe Plant Symptoms (Chatbot)")
+
+user_text = st.text_area(
+    "Example: yellow leaves with brown spots, wilting plant, holes in leaves"
+)
+
+# ---------------- IMAGE DIAGNOSIS ----------------
+image_disease = None
+image_confidence = None
 
 if uploaded_file:
-    # Convert uploaded file into PIL image
-    img = Image.open(uploaded_file)
+    if uploaded_file.size > 3 * 1024 * 1024:
+        st.error("⚠️ Image too large. Upload image smaller than 3MB.")
+        st.stop()
 
-    # Show the uploaded image
-    st.image(img, use_container_width=True)
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Uploaded Leaf Image", width=350)
 
-    # Preprocess image
-    img = img.resize((224, 224))
-    img_array = np.array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+    img_tensor = transform(image).unsqueeze(0)
 
-    # Predict
-    predictions = model.predict(img_array)
-    class_idx = np.argmax(predictions)
-    confidence = predictions[0][class_idx]
+    with torch.no_grad():
+        outputs = model(img_tensor)
+        probs = F.softmax(outputs, dim=1)[0]
 
-    st.success(f"Prediction: **{class_names[class_idx]}**")
-    st.info(f"Confidence: **{confidence*100:.2f}%**")
+    top3 = torch.topk(probs, min(3, len(class_names)))
+
+    st.subheader("🔍 Image-based Predictions")
+    for i in range(len(top3.indices)):
+        label = class_names[top3.indices[i].item()]
+        conf = top3.values[i].item() * 100
+        st.write(f"{i+1}. **{label}** — {conf:.2f}%")
+
+    pred_idx = torch.argmax(probs).item()
+    image_disease = class_names[pred_idx]
+    image_confidence = probs[pred_idx].item()
+
+    if image_confidence >= 0.25:
+        st.success(f"🌿 Image Diagnosis: **{image_disease}**")
+        st.info(f"Confidence: **{image_confidence * 100:.2f}%**")
+    else:
+        st.warning("⚠️ Image diagnosis confidence is low.")
+
+# ---------------- TEXT DIAGNOSIS ----------------
+text_disease = None
+
+if user_text:
+    text_disease = text_diagnosis(user_text)
+    st.subheader("🧠 Text-based Diagnosis")
+    st.success(f"Possible Disease: **{text_disease}**")
+
+# ---------------- FINAL RECOMMENDATION ----------------
+if image_disease or text_disease:
+    st.markdown("### ✅ Final Recommendation")
+
+    final_disease = image_disease if image_confidence and image_confidence >= 0.25 else text_disease
+    treatment = get_treatment(final_disease)
+
+    st.write(f"**Final Disease Decision:** {final_disease}")
+    st.warning(f"💊 **Recommended Treatment:** {treatment}")
+
+# ---------------- FOOTER ----------------
+st.markdown("---")
+st.caption("PlantDocBot | Image + Chatbot based Plant Disease Diagnosis")
