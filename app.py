@@ -120,3 +120,4 @@ if image_disease or text_disease:
 # ---------------- FOOTER ----------------
 st.markdown("---")
 st.caption("PlantDocBot | Image + Chatbot based Plant Disease Diagnosis")
+
