@@ -3,10 +3,7 @@ env/
 *.pth
 *.ipynb
 __pycache__/
-
-
-# Do NOT push Jupyter notebook
 train.ipynb
 .ipynb_checkpoints/
-
 README.md
+knowledge/unknown_cases.json

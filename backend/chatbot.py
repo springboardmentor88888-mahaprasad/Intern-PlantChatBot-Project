@@ -1,6 +1,8 @@
 # Chatbot module for Plant Disease ChatBot
 
-from .treatments import get_treatment, format_treatment_response, TREATMENTS
+from knowledge import get_treatment, format_treatment_response
+from knowledge.treatments import _diseases_data as TREATMENTS
+
 
 
 class PlantDiseaseBot:
