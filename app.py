@@ -247,16 +247,23 @@ with col2:
     # ---------------- SYMPTOM OVERVIEW ----------------
     st.write("### 🧠 Symptom Match")
     
+    # Track if voice/text input was provided but uncertain
+    voice_text_uncertain = False
+    
     # Display results from Voice/Text if available
     if transcription:
         st.info(f"**Voice Transcription:** \"{transcription}\"")
-        if voice_disease != "Unknown":
+        if voice_disease and voice_disease != "Unknown":
             st.success(f"**Found in Voice:** {voice_disease}")
+        else:
+            voice_text_uncertain = True
     
     if text_disease and text_disease != "Unknown":
         st.success(f"**Found in Text:** {text_disease}")
+    elif user_text and text_disease == "Unknown":
+        voice_text_uncertain = True
     
-    if not (image_disease or text_disease or voice_disease):
+    if not (image_disease or text_disease or voice_disease or transcription or user_text):
         st.info("Awaiting input for diagnosis...")
 
     # ---------------- FINAL RECOMMENDATION ----------------
@@ -297,6 +304,23 @@ with col2:
             st.write(f"  • {item}")
         final_disease = None  # Prevent further processing
 
+    # Show image upload recommendation for uncertain voice/text diagnosis
+    if voice_text_uncertain and not final_disease and not uploaded_file:
+        st.markdown("""
+        <div style="background-color: #e3f2fd; padding: 20px; border-radius: 15px; border-left: 5px solid #1976d2;">
+            <h3 style="margin-top: 0; color: #1565c0;">📷 Recommended: Upload a Leaf Image</h3>
+            <p style="color: #555; margin-bottom: 8px;">
+                We couldn't find enough matching symptoms from your description.
+            </p>
+            <p style="color: #555; margin-bottom: 0;">
+                <b>For higher accuracy</b>, please upload a clear photo of the affected leaf using the 
+                <b>"📷 Image Upload"</b> tab. Image-based diagnosis uses AI to analyze visual patterns 
+                and typically provides more reliable results.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("---")
+
     if final_disease and final_disease != "Unknown":
         st.markdown(f"""
         <div style="background-color: #e8f5e9; padding: 20px; border-radius: 15px; border-left: 5px solid #2e7d32;">
@@ -309,9 +333,9 @@ with col2:
         # Use confidence-aware formatting
         formatted_response = format_treatment_response(final_disease, final_confidence)
         st.markdown(formatted_response)
-    elif not final_disease and (image_disease or text_disease or voice_disease):
+    elif not final_disease and not voice_text_uncertain and (image_disease or text_disease or voice_disease):
         st.warning("🔍 We analyzed your inputs but couldn't find a high-confidence match in our knowledge base.")
-    elif not (image_disease or text_disease or voice_disease):
+    elif not (image_disease or text_disease or voice_disease or transcription or user_text):
         st.write("---")
         st.write("🚀 **Ready to assist!** Please upload an image, recording, or description to begin.")
 

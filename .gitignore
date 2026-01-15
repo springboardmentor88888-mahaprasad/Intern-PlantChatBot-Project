@@ -7,3 +7,4 @@ train.ipynb
 .ipynb_checkpoints/
 README.md
 knowledge/unknown_cases.json
+.env

@@ -5,7 +5,17 @@
     "type": "Fungal",
     "severity": "High",
     "cause": "Fungus Phytophthora infestans",
-    "symptoms": "Dark brown spots on leaves and stems, white fuzzy growth on leaf undersides",
+    "symptoms": [
+      "dark brown spots",
+      "brown patches on leaves",
+      "white fuzzy growth",
+      "white mold under leaves",
+      "leaves turning black",
+      "stem rotting",
+      "plant dying fast",
+      "wet rot smell",
+      "leaves wilting suddenly"
+    ],
     "treatment": [
       "Remove and destroy infected plant parts",
       "Apply copper-based fungicides",
@@ -26,7 +36,17 @@
     "type": "Fungal",
     "severity": "Medium",
     "cause": "Fungus Alternaria solani",
-    "symptoms": "Dark spots with concentric rings on lower leaves, yellowing around spots",
+    "symptoms": [
+      "dark spots with rings",
+      "target spots",
+      "concentric rings",
+      "bull's eye pattern",
+      "lower leaves yellowing",
+      "yellow halo around spots",
+      "leaves drying from bottom",
+      "old leaves affected first",
+      "brown circular spots"
+    ],
     "treatment": [
       "Remove affected leaves immediately",
       "Apply fungicides containing chlorothalonil or copper",
@@ -46,7 +66,17 @@
     "type": "Fungal",
     "severity": "Medium",
     "cause": "Fungus Passalora fulva",
-    "symptoms": "Yellow spots on upper leaf surface, olive-green to brown fuzzy growth underneath",
+    "symptoms": [
+      "yellow spots on top of leaf",
+      "fuzzy growth underneath",
+      "olive green mold",
+      "brown fuzzy patches",
+      "leaves turning yellow",
+      "greenhouse disease",
+      "humid weather problem",
+      "leaves curling down",
+      "velvety coating under leaf"
+    ],
     "treatment": [
       "Improve ventilation in greenhouses",
       "Apply fungicides if severe",
@@ -66,7 +96,17 @@
     "type": "Fungal",
     "severity": "Medium",
     "cause": "Fungus Septoria lycopersici",
-    "symptoms": "Small circular spots with dark borders and gray centers, tiny black dots in spots",
+    "symptoms": [
+      "small round spots",
+      "tiny black dots in spots",
+      "gray center spots",
+      "dark border around spots",
+      "many small holes",
+      "leaves look speckled",
+      "spots with dark edges",
+      "lower leaves affected",
+      "leaves falling off"
+    ],
     "treatment": [
       "Remove infected leaves",
       "Apply copper-based or chlorothalonil fungicides",
@@ -86,7 +126,17 @@
     "type": "Bacterial",
     "severity": "Medium",
     "cause": "Bacteria Xanthomonas species",
-    "symptoms": "Small dark spots on leaves, raised scab-like spots on fruit",
+    "symptoms": [
+      "small dark spots on leaves",
+      "raised bumps on fruit",
+      "scab like spots",
+      "water soaked lesions",
+      "spots with yellow halo",
+      "fruit has rough spots",
+      "leaves look burned",
+      "oily looking spots",
+      "spots spreading fast"
+    ],
     "treatment": [
       "Remove infected plant material",
       "Apply copper-based bactericides",
@@ -106,7 +156,18 @@
     "type": "Viral",
     "severity": "High",
     "cause": "Tomato yellow leaf curl virus (TYLCV), transmitted by whiteflies",
-    "symptoms": "Upward curling of leaves, yellowing between veins, stunted growth",
+    "symptoms": [
+      "leaves curling up",
+      "yellow edges on leaves",
+      "plant not growing",
+      "stunted growth",
+      "small leaves",
+      "leaves cupping upward",
+      "yellow between veins",
+      "whiteflies on plant",
+      "plant looks weak",
+      "flowers dropping"
+    ],
     "treatment": [
       "Remove and destroy infected plants",
       "Control whitefly populations with insecticides or sticky traps",
@@ -126,7 +187,18 @@
     "type": "Viral",
     "severity": "High",
     "cause": "Tomato mosaic virus (ToMV)",
-    "symptoms": "Mottled light and dark green pattern on leaves, distorted leaf shape, reduced yield",
+    "symptoms": [
+      "mottled leaves",
+      "light and dark green patches",
+      "mosaic pattern",
+      "leaves look patchy",
+      "twisted leaves",
+      "distorted leaf shape",
+      "wrinkled leaves",
+      "reduced fruit",
+      "fern leaf appearance",
+      "plant looks sick but no spots"
+    ],
     "treatment": [
       "Remove and destroy infected plants",
       "No chemical treatment available",
@@ -146,7 +218,14 @@
     "type": "None",
     "severity": "None",
     "cause": "N/A",
-    "symptoms": "No disease symptoms present",
+    "symptoms": [
+      "no disease",
+      "plant looks good",
+      "healthy green leaves",
+      "normal growth",
+      "no spots",
+      "no yellowing"
+    ],
     "treatment": [
       "Continue regular care and maintenance",
       "Monitor for early signs of disease",
