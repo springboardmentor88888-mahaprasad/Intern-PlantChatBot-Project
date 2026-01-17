@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit  as st
 import torch
 import torch.nn.functional as F
 from torchvision import models, transforms
@@ -6,10 +6,33 @@ from PIL import Image
 
 from Backend.treatment import get_treatment
 from Backend.chatbot import text_diagnosis   # ✅ NEW IMPORT
+import base64
+
+def set_background(image_path):
+    with open(image_path, "rb") as image_file:
+        encoded = base64.b64encode(image_file.read()).decode()
+
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpg;base64,{encoded}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+set_background("assets/bg1.jpg")
 
 # ---------------- CONFIG ----------------
 MODEL_PATH = "Models/plant_disease_resnet50.pth"
 IMG_SIZE = 224
+
 
 st.set_page_config(
     page_title="PlantDocBot",
@@ -117,3 +140,4 @@ if image_disease or text_disease:
 # ---------------- FOOTER ----------------
 st.markdown("---")
 st.caption("PlantDocBot | Image + Chatbot based Plant Disease Diagnosis")
+
