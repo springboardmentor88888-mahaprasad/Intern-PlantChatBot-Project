@@ -24,7 +24,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main {
-        background-color: #f0f2f6;
+        /* background-color handled by config.toml */
     }
     
     /* Center the main block container */
@@ -127,7 +127,51 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------- STATE MANAGEMENT ----------------
+# Initialize session state for single-mode diagnosis
+if "current_mode" not in st.session_state:
+    st.session_state.current_mode = None  # "image", "voice", or "text"
+
+if "diagnosis_result" not in st.session_state:
+    st.session_state.diagnosis_result = {
+        "disease": None,
+        "confidence": None,
+        "source": None,
+        "transcription": None,
+        "image": None,
+        "user_text": None
+    }
+
+
+def clear_diagnosis():
+    """Reset all diagnosis state."""
+    st.session_state.current_mode = None
+    st.session_state.diagnosis_result = {
+        "disease": None,
+        "confidence": None,
+        "source": None,
+        "transcription": None,
+        "image": None,
+        "user_text": None
+    }
+
+
+def set_mode(mode: str):
+    """Set the current diagnosis mode and clear previous results."""
+    if st.session_state.current_mode != mode:
+        st.session_state.current_mode = mode
+        st.session_state.diagnosis_result = {
+            "disease": None,
+            "confidence": None,
+            "source": None,
+            "transcription": None,
+            "image": None,
+            "user_text": None
+        }
+
+
 # ---------------- LOAD MODEL ----------------
+@st.cache_resource
 def load_model():
     checkpoint = torch.load(MODEL_PATH, map_location="cpu")
     state_dict = checkpoint["model_state_dict"]
@@ -144,10 +188,8 @@ def load_model():
     if not class_names:
         from knowledge.treatments import _diseases_data as TREATMENTS
         class_names = list(TREATMENTS.keys())[:num_classes]
-        # Pad with generic names if knowledge base has fewer entries than model classes
         if len(class_names) < num_classes:
             class_names.extend([f"Disease_{i}" for i in range(len(class_names), num_classes)])
-
 
     return model, class_names
 
@@ -164,16 +206,29 @@ transform = transforms.Compose([
     )
 ])
 
-# ---------------- UI ----------------
+# ---------------- UI HEADER ----------------
 st.markdown("<h1>🌿 PlantDocBot – AI Plant Disease Diagnosis</h1>", unsafe_allow_html=True)
-st.write("<p style='text-align: center;'>Professional AI-powered diagnosis using Images, Voice, and Text symptoms.</p>", unsafe_allow_html=True)
+st.write("<p style='text-align: center;'>Professional AI-powered diagnosis using Images, Voice, or Text symptoms.</p>", unsafe_allow_html=True)
 
-# Initialize states
-image_disease = None
-image_confidence = None
-text_disease = None
-voice_disease = None
-transcription = None
+# ---------------- CLEAR BUTTON ----------------
+st.markdown("""
+<style>
+    .new-diagnosis-btn button {
+        white-space: nowrap !important;
+        min-width: 160px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+col_clear = st.columns([2, 1.5, 2])
+with col_clear[1]:
+    st.markdown('<div class="new-diagnosis-btn">', unsafe_allow_html=True)
+    if st.button("🔄 New Diagnosis", use_container_width=True):
+        clear_diagnosis()
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("---")
 
 # ---------------- INPUT TABS ----------------
 tab1, tab2, tab3 = st.tabs(["📷 Image Upload", "🎤 Voice Input", "💬 Text Symptoms"])
@@ -185,12 +240,36 @@ with tab1:
         type=["jpg", "jpeg", "png"],
         key="image_upload"
     )
+    
+    if uploaded_file:
+        set_mode("image")
+        image = Image.open(uploaded_file).convert("RGB")
+        st.session_state.diagnosis_result["image"] = image
+        
+        # Run image prediction
+        img_tensor = transform(image).unsqueeze(0)
+        with torch.no_grad():
+            outputs = model(img_tensor)
+            probs = F.softmax(outputs, dim=1)[0]
+        
+        pred_idx = torch.argmax(probs).item()
+        st.session_state.diagnosis_result["disease"] = class_names[pred_idx]
+        st.session_state.diagnosis_result["confidence"] = probs[pred_idx].item()
+        st.session_state.diagnosis_result["source"] = "Image Analysis"
+        st.session_state.diagnosis_result["top3"] = torch.topk(probs, min(3, len(class_names)))
 
 with tab2:
     st.subheader("Voice Assistant")
-    audio_file = st.file_uploader("Speak about the symptoms (audio file)", type=["mp3", "wav", "m4a", "ogg"], key="voice_upload")
+    audio_file = st.file_uploader(
+        "Upload an audio file describing symptoms",
+        type=["mp3", "wav", "m4a", "ogg"],
+        key="voice_upload"
+    )
+    
     if audio_file:
+        set_mode("voice")
         st.audio(audio_file)
+        
         with st.spinner("Analyzing your voice..."):
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(audio_file.name)[1]) as tmp:
                 tmp.write(audio_file.getvalue())
@@ -200,8 +279,9 @@ with tab2:
                 if result["error"]:
                     st.error(result["error"])
                 else:
-                    transcription = result["transcription"]
-                    voice_disease = result["disease_key"]
+                    st.session_state.diagnosis_result["transcription"] = result["transcription"]
+                    st.session_state.diagnosis_result["disease"] = result["disease_key"]
+                    st.session_state.diagnosis_result["source"] = "Voice Symptoms"
             finally:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
@@ -213,132 +293,105 @@ with tab3:
         placeholder="Example: My tomato leaves have yellow halos and concentric rings.",
         key="text_input"
     )
+    
     if user_text:
-        text_disease = text_diagnosis(user_text)
+        set_mode("text")
+        st.session_state.diagnosis_result["user_text"] = user_text
+        disease = text_diagnosis(user_text)
+        st.session_state.diagnosis_result["disease"] = disease
+        st.session_state.diagnosis_result["source"] = "Text Symptoms"
 
-# ---------------- RESULTS COLUMN ----------------
+# ---------------- RESULTS SECTION ----------------
 st.markdown("---")
-col1, col2 = st.columns([1, 1.2])
 
-with col1:
-    # ---------------- IMAGE ANALYSIS RESULTS ----------------
-    if uploaded_file:
-        image = Image.open(uploaded_file).convert("RGB")
-        st.image(image, caption="Uploaded Leaf Detail", use_container_width=True)
+current_mode = st.session_state.current_mode
+result = st.session_state.diagnosis_result
 
-        img_tensor = transform(image).unsqueeze(0)
-        with torch.no_grad():
-            outputs = model(img_tensor)
-            probs = F.softmax(outputs, dim=1)[0]
-
-        top3 = torch.topk(probs, min(3, len(class_names)))
+if current_mode is None:
+    st.info("🚀 **Ready to assist!** Please upload an image, recording, or describe your plant's symptoms to begin.")
+else:
+    col1, col2 = st.columns([1, 1.2])
+    
+    with col1:
+        st.write(f"### 📊 {current_mode.title()} Analysis")
         
-        st.write("### 🔍 Image Insights")
-        for i in range(len(top3.indices)):
-            label = class_names[top3.indices[i].item()]
-            conf = top3.values[i].item() * 100
-            st.progress(top3.values[i].item(), text=f"{label} ({conf:.1f}%)")
-
-        pred_idx = torch.argmax(probs).item()
-        image_disease = class_names[pred_idx]
-        image_confidence = probs[pred_idx].item()
-
-with col2:
-    # ---------------- SYMPTOM OVERVIEW ----------------
-    st.write("### 🧠 Symptom Match")
-    
-    # Track if voice/text input was provided but uncertain
-    voice_text_uncertain = False
-    
-    # Display results from Voice/Text if available
-    if transcription:
-        st.info(f"**Voice Transcription:** \"{transcription}\"")
-        if voice_disease and voice_disease != "Unknown":
-            st.success(f"**Found in Voice:** {voice_disease}")
-        else:
-            voice_text_uncertain = True
-    
-    if text_disease and text_disease != "Unknown":
-        st.success(f"**Found in Text:** {text_disease}")
-    elif user_text and text_disease == "Unknown":
-        voice_text_uncertain = True
-    
-    if not (image_disease or text_disease or voice_disease or transcription or user_text):
-        st.info("Awaiting input for diagnosis...")
-
-    # ---------------- FINAL RECOMMENDATION ----------------
-    # Combining sources with confidence-aware handling
-    final_disease = None
-    final_confidence = None
-    source = None
-
-    # Priority: Image (if >80% confident) > Voice > Text > Image (moderate) > Uncertain
-    if image_confidence and image_confidence >= 0.8:
-        final_disease = image_disease
-        final_confidence = image_confidence
-        source = "High Confidence Image"
-    elif voice_disease and voice_disease != "Unknown":
-        final_disease = voice_disease
-        final_confidence = None  # Voice doesn't have confidence
-        source = "Voice Symptoms"
-    elif text_disease and text_disease != "Unknown":
-        final_disease = text_disease
-        final_confidence = None  # Text doesn't have confidence
-        source = "Text Symptoms"
-    elif image_confidence and image_confidence >= 0.4:
-        final_disease = image_disease
-        final_confidence = image_confidence
-        source = "Image Analysis (Moderate Confidence)"
-    elif image_disease and image_confidence and image_confidence < 0.4:
-        # Low confidence - show uncertain response
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 15px; border-left: 5px solid #ff9800;">
-            <h3 style="margin-top: 0; color: #e65100;">⚠️ Uncertain Diagnosis</h3>
-            <p style="color: #666;">The prediction confidence is too low to provide a reliable diagnosis.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("---")
-        uncertain_info = get_uncertain_response()
-        st.write("**Please try one of the following:**")
-        for item in uncertain_info["treatment"]:
-            st.write(f"  • {item}")
-        final_disease = None  # Prevent further processing
-
-    # Show image upload recommendation for uncertain voice/text diagnosis
-    if voice_text_uncertain and not final_disease and not uploaded_file:
-        st.markdown("""
-        <div style="background-color: #e3f2fd; padding: 20px; border-radius: 15px; border-left: 5px solid #1976d2;">
-            <h3 style="margin-top: 0; color: #1565c0;">📷 Recommended: Upload a Leaf Image</h3>
-            <p style="color: #555; margin-bottom: 8px;">
-                We couldn't find enough matching symptoms from your description.
-            </p>
-            <p style="color: #555; margin-bottom: 0;">
-                <b>For higher accuracy</b>, please upload a clear photo of the affected leaf using the 
-                <b>"📷 Image Upload"</b> tab. Image-based diagnosis uses AI to analyze visual patterns 
-                and typically provides more reliable results.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("---")
-
-    if final_disease and final_disease != "Unknown":
-        st.markdown(f"""
-        <div style="background-color: #e8f5e9; padding: 20px; border-radius: 15px; border-left: 5px solid #2e7d32;">
-            <h3 style="margin-top: 0; color: #1b5e20;">✅ Targeted Diagnosis: {final_disease.replace('___', ' ').replace('_', ' ').title()}</h3>
-            <p style="color: #666; font-size: 0.9em;">Verified via <b>{source}</b></p>
-        </div>
-        """, unsafe_allow_html=True)
+        if current_mode == "image" and result["image"]:
+            st.image(result["image"], caption="Uploaded Leaf", use_container_width=True)
+            
+            if "top3" in result:
+                st.write("**Top Predictions:**")
+                top3 = result["top3"]
+                for i in range(len(top3.indices)):
+                    label = class_names[top3.indices[i].item()]
+                    conf = top3.values[i].item() * 100
+                    st.progress(top3.values[i].item(), text=f"{label} ({conf:.1f}%)")
         
-        st.markdown("---")
-        # Use confidence-aware formatting
-        formatted_response = format_treatment_response(final_disease, final_confidence)
-        st.markdown(formatted_response)
-    elif not final_disease and not voice_text_uncertain and (image_disease or text_disease or voice_disease):
-        st.warning("🔍 We analyzed your inputs but couldn't find a high-confidence match in our knowledge base.")
-    elif not (image_disease or text_disease or voice_disease or transcription or user_text):
-        st.write("---")
-        st.write("🚀 **Ready to assist!** Please upload an image, recording, or description to begin.")
+        elif current_mode == "voice" and result["transcription"]:
+            st.info(f"**Transcription:** \"{result['transcription']}\"")
+        
+        elif current_mode == "text" and result["user_text"]:
+            st.info(f"**Your Description:** \"{result['user_text']}\"")
+    
+    with col2:
+        st.write("### 🩺 Diagnosis Result")
+        
+        disease = result["disease"]
+        confidence = result["confidence"]
+        source = result["source"]
+        
+        if disease and disease != "Unknown":
+            # Determine confidence level for image mode
+            if current_mode == "image" and confidence:
+                if confidence >= 0.8:
+                    conf_label = "High Confidence"
+                    conf_color = "#2e7d32"
+                elif confidence >= 0.4:
+                    conf_label = "Moderate Confidence"
+                    conf_color = "#f57c00"
+                else:
+                    conf_label = "Low Confidence"
+                    conf_color = "#d32f2f"
+                
+                st.markdown(f"""
+                <div style="background-color: #e8f5e9; padding: 20px; border-radius: 15px; border-left: 5px solid {conf_color};">
+                    <h3 style="margin-top: 0; color: #1b5e20;">✅ {disease.replace('___', ' ').replace('_', ' ').title()}</h3>
+                    <p style="color: #666; font-size: 0.9em;">{conf_label} ({confidence*100:.1f}%) via {source}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Voice/Text mode - no confidence score
+                st.markdown(f"""
+                <div style="background-color: #e8f5e9; padding: 20px; border-radius: 15px; border-left: 5px solid #2e7d32;">
+                    <h3 style="margin-top: 0; color: #1b5e20;">✅ {disease.replace('___', ' ').replace('_', ' ').title()}</h3>
+                    <p style="color: #666; font-size: 0.9em;">Diagnosed via {source}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            formatted_response = format_treatment_response(disease, confidence)
+            st.markdown(formatted_response)
+        
+        elif disease == "Unknown" or disease is None:
+            if current_mode == "image" and confidence and confidence < 0.4:
+                st.markdown("""
+                <div style="background-color: #fff3e0; padding: 20px; border-radius: 15px; border-left: 5px solid #ff9800;">
+                    <h3 style="margin-top: 0; color: #e65100;">⚠️ Uncertain Diagnosis</h3>
+                    <p style="color: #666;">The image prediction confidence is too low for a reliable diagnosis.</p>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown("---")
+                uncertain_info = get_uncertain_response()
+                st.write("**Please try:**")
+                for item in uncertain_info["treatment"]:
+                    st.write(f"  • {item}")
+            else:
+                st.markdown("""
+                <div style="background-color: #e3f2fd; padding: 20px; border-radius: 15px; border-left: 5px solid #1976d2;">
+                    <h3 style="margin-top: 0; color: #1565c0;">📷 Try Image Upload</h3>
+                    <p style="color: #555;">We couldn't identify a disease from your input. For better accuracy, try uploading a clear photo of the affected leaf.</p>
+                </div>
+                """, unsafe_allow_html=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
-st.caption("PlantDocBot | Image + Chatbot based Plant Disease Diagnosis")
+st.caption("PlantDocBot | Single-mode AI Plant Disease Diagnosis")

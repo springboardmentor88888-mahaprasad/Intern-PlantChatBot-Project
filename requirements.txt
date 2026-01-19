@@ -4,3 +4,5 @@ torchvision
 openai-whisper
 pillow
 numpy
+python-dotenv
+groq
