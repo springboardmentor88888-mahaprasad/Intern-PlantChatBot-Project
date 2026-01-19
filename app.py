@@ -19,18 +19,18 @@ st.set_page_config(
 # ---------------- LOAD MODEL ----------------
 def load_model():
     checkpoint = torch.load(MODEL_PATH, map_location="cpu")
-    state_dict = checkpoint["model_state_dict"]
+    model = models.resnet50(weights=None)
+    num_classes = len(checkpoint["idx_to_class"])
+    model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
 
-    num_classes = state_dict["fc.weight"].shape[0]
-    class_names = checkpoint.get("class_names", [])[:num_classes]
-
-    model = models.resnet50(pretrained=False)
-    model.fc = torch.nn.Linear(2048, num_classes)
-    model.load_state_dict(state_dict, strict=True)
+    model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
-    return model, class_names
+    # Get class names in correct index order
+    idx_to_class = checkpoint["idx_to_class"]
+    class_names = [idx_to_class[i] for i in range(len(idx_to_class))]
 
+    return model, class_names
 
 model, class_names = load_model()
 
@@ -43,7 +43,6 @@ transform = transforms.Compose([
         std=[0.229, 0.224, 0.225]
     )
 ])
-
 # ---------------- UI ----------------
 st.title("🌿 PlantDocBot – AI Plant Disease Diagnosis")
 st.write("Upload a leaf image or describe plant symptoms to get diagnosis and treatment.")
@@ -53,7 +52,6 @@ uploaded_file = st.file_uploader(
     "📷 Upload a plant leaf image",
     type=["jpg", "jpeg", "png"]
 )
-
 # ---------------- TEXT INPUT (CHATBOT) ----------------
 st.markdown("---")
 st.subheader("💬 Describe Plant Symptoms (Chatbot)")
@@ -61,7 +59,6 @@ st.subheader("💬 Describe Plant Symptoms (Chatbot)")
 user_text = st.text_area(
     "Example: yellow leaves with brown spots, wilting plant, holes in leaves"
 )
-
 # ---------------- IMAGE DIAGNOSIS ----------------
 image_disease = None
 image_confidence = None
