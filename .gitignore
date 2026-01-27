@@ -1,10 +1,9 @@
 .venv/
 env/
 *.pth
-*.ipynb
+
 __pycache__/
-train.ipynb
-.ipynb_checkpoints/
+
 README.md
 knowledge/unknown_cases.json
 .env
