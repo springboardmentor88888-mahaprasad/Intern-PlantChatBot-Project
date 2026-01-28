@@ -1,6 +1,5 @@
 .venv/
 env/
-*.pth
 
 __pycache__/
 
