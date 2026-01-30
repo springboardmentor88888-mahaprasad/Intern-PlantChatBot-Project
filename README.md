@@ -1,177 +1,150 @@
 # 🌿 PlantDocBot – AI Plant Disease Diagnosis
 
-A professional AI-powered plant disease diagnosis system using **Image Recognition**, **Voice Input**, and **Text Symptoms**. Built with Streamlit, PyTorch, and Groq LLM.
+**PlantDocBot** is a professional, AI-powered monolithic application for identifying plant diseases. It runs locally using **Streamlit** and combines offline Deep Learning models with online LLM capabilities to provide accurate diagnoses via Image, Voice, or Text.
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-| Mode | Description |
-|------|-------------|
-| 📷 **Image Upload** | Upload leaf photos for CNN-based disease detection (ResNet50) |
-| 🎤 **Voice Input** | Describe symptoms via audio – transcribed using Whisper |
-| 💬 **Text Symptoms** | Type symptoms for semantic classification via Groq LLM |
+### 1. 📷 Image Diagnosis (Offline / Local)
+- **Model:** ResNet50 (PyTorch) trained on the PlantVillage dataset.
+- **Function:** Upload a leaf image -> Model predicts the disease class locally.
+- **Classes:** Supports **15 disease classes** (Tomato, Potato, Pepper).
+- **Features:** Shows top-3 prediction confidence percentages.
 
-- **Single-mode diagnosis** – Only one input type active at a time for clarity
-- **Confidence-aware results** – Shows prediction confidence for image-based diagnosis
-- **Treatment recommendations** – Provides causes, symptoms, treatment & prevention info
-- **Clean white UI** – Professional light theme with centered layout
+### 2. 🎤 Voice assistant (Hybrid)
+- **Transcription:** Uses **OpenAI Whisper (Local)** to transcribe speech to text on your device.
+- **Analysis:** Uses **Groq API** to analyze the transcribed text and match it to known symptoms.
+- **Requirements:** Requires `FFmpeg` installed on the system.
+
+### 3. 💬 Text Diagnosis (Online)
+- **Model:** **Groq API** (using `openai/gpt-oss-120b`).
+- **Function:** Semantic search matching user descriptions (e.g., "brown spots with halos") to the disease database.
+- **UI:** Dedicated "Diagnose" button to prevent accidental API calls.
+
+### 4. ⚙️ Smart UI/UX
+- **Single-Mode Logic:** Only one diagnosis mode is active at a time to prevent confusion.
+- **Dynamic Reset:** "🔄 New Diagnosis" completely wipes all state, including sticky file uploaders and text inputs.
+- **Light Theme:** Enforced professional white background via config.
+
+---
+
+## 🏗️ Architecture
+
+This is a **monolithic Streamlit application**, not a client-server API architecture.
+
+- **Frontend:** Streamlit (`app.py`) handles the UI rendering.
+- **Backend Logic:** Python modules in `backend/` are imported directly.
+- **No Internal API:** There are **no** Flask or FastAPI endpoints. The app runs as a single Python process.
+
+```mermaid
+graph LR
+    User[User UI] -- Interact --> Streamlit[app.py]
+    Streamlit -- Direct Import --> Logic[Backend Modules]
+    Logic -- Image --> ResNet[Local PyTorch Model]
+    Logic -- Voice --> Whisper[Local Whisper Model]
+    Logic -- Text --> Groq[Groq External API]
+```
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| Frontend | Streamlit |
-| Image Model | ResNet50 (PyTorch) |
-| Voice Transcription | OpenAI Whisper (local) |
-| Text Classification | Groq LLM API |
-| Knowledge Base | JSON (diseases.json) |
+| Component | Technology | Role |
+|-----------|------------|------|
+| **Core Framework** | Streamlit | UI & Application Logic |
+| **Deep Learning** | PyTorch / Torchvision | Image Classification (ResNet50) |
+| **Speech-to-Text** | OpenAI Whisper | Local Audio Transcription |
+| **LLM / API** | Groq (`openai/gpt-oss-120b`) | Semantic Symptom Analysis |
+| **Data Handling** | Pandas / JSON | Knowledge Base Management |
+
+---
+
+## 🚀 Installation & Setup
+
+### 1. Prerequisites
+- **Python 3.9+**
+- **FFmpeg:** Required for Whisper to process audio files.
+  - *Windows:* `winget install Gyan.FFmpeg` or separate install.
+  - *Linux:* `sudo apt install ffmpeg`
+- **Groq API Key:** Required for Text/Voice features. Get it from [Groq Console](https://console.groq.com).
+
+### 2. Clone & Environment
+```bash
+git clone https://github.com/springboardmentor88888-mahaprasad/Intern-PlantChatBot-Project.git
+cd Intern-PlantChatBot-Project
+
+# Create Virtual Environment
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Mac/Linux
+```
+
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Configure API Key
+Create a `.env` file in the root directory:
+```bash
+GROQ_API_KEY=gsk_your_actual_api_key_here
+```
+
+### 5. Run the Application
+```bash
+streamlit run app.py
+```
 
 ---
 
 ## 📁 Project Structure
 
 ```
-PlantChatBot-Project/
-├── app.py                      # Main Streamlit application
-├── .env                        # API keys (not in git)
-├── requirements.txt            # Python dependencies
+Intern-PlantChatBot-Project/
+├── app.py                   # Main entry point (Streamlit UI)
+├── requirements.txt         # Dependencies
+├── .env                     # API Keys (GitIgnored)
 ├── .streamlit/
-│   └── config.toml             # Streamlit theme configuration
+│   └── config.toml          # Theme configuration (White background)
 ├── backend/
-│   ├── __init__.py             # Module exports
-│   ├── app.py                  # Voice processing coordinator
-│   ├── chatbot.py              # Greeting & help responses
-│   ├── groq_fallback.py        # Groq LLM API integration
-│   ├── symptom_matcher.py      # Text → Disease classification
-│   └── voice_handler.py        # Audio → Text transcription
+│   ├── symptom_matcher.py   # Logic for matching text to diseases
+│   ├── voice_handler.py     # Whisper AI transcription logic
+│   ├── groq_fallback.py     # Groq API integration client
+│   └── chatbot.py           # Helper for greeting/responses
 ├── knowledge/
-│   ├── __init__.py             # Module exports
-│   ├── diseases.json           # Disease database
-│   └── treatments.py           # JSON loader & formatters
+│   ├── diseases.json        # Database of symptoms & treatments
+│   └── treatments.py        # Helper to load disease data
 └── models/
-    └── resnet50_*.pth          # Trained image model
+    └── resnet50_*.pth       # Trained PyTorch model checkpoint
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🌱 Supported Diseases (Knowledge Base)
 
-### Prerequisites
+The system is optimized for **Tomato** plants but trained on a wider set:
 
-- Python 3.9+
-- FFmpeg (for voice features)
-- Groq API key (for text/voice diagnosis)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/springboardmentor88888-mahaprasad/Intern-PlantChatBot-Project.git
-   cd Intern-PlantChatBot-Project
-   ```
-
-2. **Create virtual environment**
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate  # Windows
-   # source .venv/bin/activate  # Linux/Mac
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**
-   ```bash
-   # Create .env file
-   echo GROQ_API_KEY=your_groq_api_key_here > .env
-   ```
-
-5. **Run the application**
-   ```bash
-   streamlit run app.py
-   ```
+- **Tomato:** Bacterial Spot, Early Blight, Late Blight, Leaf Mold, Septoria Leaf Spot, Spider Mites, Target Spot, Yellow Leaf Curl Virus, Mosaic Virus, Healthy.
+- **Potato:** Early Blight, Late Blight, Healthy.
+- **Pepper:** Bacterial Spot, Healthy.
 
 ---
 
-## 🔑 Environment Variables
+## ⚠️ Troubleshooting
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GROQ_API_KEY` | Groq API key for LLM classification | Yes (for voice/text) |
+**1. "FFmpeg not found" error:**
+   - Ensure FFmpeg is installed and added to your system PATH.
+   - Restart the terminal after installing FFmpeg.
 
-Get your API key from: https://console.groq.com
+**2. "Model file not found":**
+   - Ensure `models/resnet50_plantvillage_checkpoint.pth` exists. If you pulled from git, make sure LFS didn't truncate it (though this repo uses standard git storage).
 
----
-
-## 📋 Requirements
-
-```
-streamlit
-torch
-torchvision
-openai-whisper
-pillow
-numpy
-python-dotenv
-groq
-```
+**3. "Groq API Error":**
+   - Check your `.env` file and ensure the API key is valid.
 
 ---
 
-## 🎨 Theme Configuration
-
-The app uses a light theme defined in `.streamlit/config.toml`:
-
-```toml
-[theme]
-base="light"
-primaryColor="#2e7d32"
-backgroundColor="#ffffff"
-secondaryBackgroundColor="#f0f2f6"
-textColor="#000000"
-font="sans serif"
-```
-
----
-
-## 🌱 Supported Diseases
-
-- Tomato Late Blight
-- Tomato Early Blight
-- Tomato Leaf Mold
-- Tomato Septoria Leaf Spot
-- Tomato Bacterial Spot
-- Tomato Yellow Leaf Curl Virus
-- Tomato Mosaic Virus
-- Tomato Target Spot
-- Tomato Spider Mites
-- Tomato Healthy
-
----
-
-## 👥 Team
-
+### Team
 **Mentor:** Mahaprasad Jena
-
-### Intern Guidelines
-- Each intern must create their own branch
-- All work must be committed under personal branches
-- No code should be pushed directly to main
-- Use GitHub for documentation & file sharing
-
----
-
-## 📄 License
-
-This project is for educational purposes as part of the internship program.
-
----
-
-<p align="center">
-  <b>PlantDocBot</b> | AI-Powered Plant Disease Diagnosis
-</p>
+*Intern project for automated plant disease diagnosis.*
