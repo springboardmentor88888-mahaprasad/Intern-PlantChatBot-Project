@@ -178,24 +178,6 @@ def set_mode(mode: str):
             "user_text": None
         }
 
-# ... (lines 181-228 remain unchanged) ...
-
-# ... (lines 229-269 remain unchanged) ...
-
-    uploaded_file = st.file_uploader(
-        "Upload a clear photo of the infected leaf",
-        type=["jpg", "jpeg", "png"],
-        key=f"image_upload_{st.session_state.uploader_key}"
-    )
-
-# ... (lines 274-294 remain unchanged) ...
-
-    audio_file = st.file_uploader(
-        "Upload an audio file describing symptoms",
-        type=["mp3", "wav", "m4a", "ogg"],
-        key=f"voice_upload_{st.session_state.uploader_key}"
-    )
-
 
 # ---------------- LOAD MODEL ----------------
 # PlantVillage class names in alphabetical order (standard DataLoader ordering)
@@ -287,7 +269,7 @@ with tab1:
     uploaded_file = st.file_uploader(
         "Upload a clear photo of the infected leaf",
         type=["jpg", "jpeg", "png"],
-        key="image_upload"
+        key=f"image_upload_{st.session_state.uploader_key}"
     )
     
     if uploaded_file:
@@ -312,7 +294,7 @@ with tab2:
     audio_file = st.file_uploader(
         "Upload an audio file describing symptoms",
         type=["mp3", "wav", "m4a", "ogg"],
-        key="voice_upload"
+        key=f"voice_upload_{st.session_state.uploader_key}"
     )
     
     if audio_file:
