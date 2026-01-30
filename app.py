@@ -128,7 +128,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------- STATE MANAGEMENT ----------------
-# Initialize session state for single-mode diagnosis
+# Initialize uploader key to force reset
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
 if "current_mode" not in st.session_state:
     st.session_state.current_mode = None  # "image", "voice", or "text"
 
@@ -154,6 +157,12 @@ def clear_diagnosis():
         "image": None,
         "user_text": None
     }
+    
+    # Clear text input explicitly (setting to empty string forces reset)
+    st.session_state["text_input"] = ""
+    
+    # Increment uploader key to force re-render of file uploaders (clears them)
+    st.session_state.uploader_key += 1
 
 
 def set_mode(mode: str):
@@ -169,27 +178,67 @@ def set_mode(mode: str):
             "user_text": None
         }
 
+# ... (lines 181-228 remain unchanged) ...
+
+# ... (lines 229-269 remain unchanged) ...
+
+    uploaded_file = st.file_uploader(
+        "Upload a clear photo of the infected leaf",
+        type=["jpg", "jpeg", "png"],
+        key=f"image_upload_{st.session_state.uploader_key}"
+    )
+
+# ... (lines 274-294 remain unchanged) ...
+
+    audio_file = st.file_uploader(
+        "Upload an audio file describing symptoms",
+        type=["mp3", "wav", "m4a", "ogg"],
+        key=f"voice_upload_{st.session_state.uploader_key}"
+    )
+
 
 # ---------------- LOAD MODEL ----------------
+# PlantVillage class names in alphabetical order (standard DataLoader ordering)
+PLANTVILLAGE_CLASSES = [
+    "Pepper__bell___Bacterial_spot",
+    "Pepper__bell___healthy",
+    "Potato___Early_blight",
+    "Potato___Late_blight",
+    "Potato___healthy",
+    "Tomato___Bacterial_spot",
+    "Tomato___Early_blight",
+    "Tomato___Late_blight",
+    "Tomato___Leaf_Mold",
+    "Tomato___Septoria_leaf_spot",
+    "Tomato___Spider_mites Two-spotted_spider_mite",
+    "Tomato___Target_Spot",
+    "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+    "Tomato___Tomato_mosaic_virus",
+    "Tomato___healthy",
+]
+
 @st.cache_resource
 def load_model():
     checkpoint = torch.load(MODEL_PATH, map_location="cpu")
     state_dict = checkpoint["model_state_dict"]
 
     num_classes = state_dict["fc.weight"].shape[0]
-    class_names = checkpoint.get("class_names", [])[:num_classes]
+    
+    # Use explicit class names if they match, else fallback
+    if num_classes == len(PLANTVILLAGE_CLASSES):
+        class_names = PLANTVILLAGE_CLASSES
+    else:
+        class_names = checkpoint.get("class_names", [])[:num_classes]
+        if not class_names:
+            from knowledge.treatments import _diseases_data as TREATMENTS
+            class_names = list(TREATMENTS.keys())[:num_classes]
+            if len(class_names) < num_classes:
+                class_names.extend([f"Disease_{i}" for i in range(len(class_names), num_classes)])
 
     model = models.resnet50(pretrained=False)
     model.fc = torch.nn.Linear(2048, num_classes)
     model.load_state_dict(state_dict, strict=True)
     model.eval()
-
-    # Silently use disease keys from knowledge base if class names are missing
-    if not class_names:
-        from knowledge.treatments import _diseases_data as TREATMENTS
-        class_names = list(TREATMENTS.keys())[:num_classes]
-        if len(class_names) < num_classes:
-            class_names.extend([f"Disease_{i}" for i in range(len(class_names), num_classes)])
 
     return model, class_names
 
@@ -294,12 +343,16 @@ with tab3:
         key="text_input"
     )
     
-    if user_text:
-        set_mode("text")
-        st.session_state.diagnosis_result["user_text"] = user_text
-        disease = text_diagnosis(user_text)
-        st.session_state.diagnosis_result["disease"] = disease
-        st.session_state.diagnosis_result["source"] = "Text Symptoms"
+    if st.button("🔍 Diagnose", key="text_search_btn", use_container_width=True):
+        if user_text:
+            set_mode("text")
+            st.session_state.diagnosis_result["user_text"] = user_text
+            with st.spinner("Analyzing symptoms..."):
+                disease = text_diagnosis(user_text)
+            st.session_state.diagnosis_result["disease"] = disease
+            st.session_state.diagnosis_result["source"] = "Text Symptoms"
+        else:
+            st.warning("Please enter some symptoms first.")
 
 # ---------------- RESULTS SECTION ----------------
 st.markdown("---")
