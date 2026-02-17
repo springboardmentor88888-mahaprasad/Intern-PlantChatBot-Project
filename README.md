@@ -42,12 +42,11 @@ flowchart TB
         IMG[Image Processor<br/>PyTorch/ResNet50]
         WHISPER[Whisper Model<br/>Speech-to-Text]
         SYMPTOM[Symptom Matcher<br/>Groq LLM]
-        CHATBOT[Chatbot Logic<br/>Response Generator]
+        CHATBOT[Chatbot Logic<br/>backend/chatbot.py]
     end
 
     subgraph Data["💾 Data Layer"]
         SQLITE[(SQLite DB<br/>plantdocbot.db)]
-        JSON[diseases.json<br/>Knowledge Base]
         MODEL[resnet50_model.pth<br/>ML Model]
     end
 
@@ -55,19 +54,18 @@ flowchart TB
         GROQ[Groq API<br/>Llama 3.3 70B]
     end
 
-    UI -->|HTTP/REST| API
     UI -->|Direct Import| IMG
     UI -->|Direct Import| WHISPER
-    UI -->|Direct Import| CHATBOT
+    UI -->|HTTP/REST| API
     
     API -->|Store/Retrieve| SQLITE
     IMG -->|Load| MODEL
     WHISPER -->|Query| GROQ
     SYMPTOM -->|Query| GROQ
-    CHATBOT -->|Read| JSON
+    CHATBOT -->|Read| SQLITE
     
-    IMG -->|Lookup| JSON
-    SYMPTOM -->|Lookup| JSON
+    IMG -->|Lookup| SQLITE
+    SYMPTOM -->|Lookup| SQLITE
 ```
 
 ---
@@ -121,33 +119,27 @@ sequenceDiagram
     participant Backend as Backend Layer
     participant Model as ML Models
     participant DB as SQLite DB
-    participant API as External APIs
+    participant API as Groq API
 
     User->>Streamlit: Upload Image/Voice/Text
     
     alt Image Upload
         Streamlit->>Model: Load ResNet50
         Model-->>Streamlit: Predictions
-        Streamlit->>Backend: Get Treatment Info
-        Backend->>DB: Query Knowledge Base
-        DB-->>Backend: Disease Data
-        Backend-->>Streamlit: Treatment Response
+        Streamlit->>DB: Query Disease Info
+        DB-->>Streamlit: Treatment Data
     else Voice Input
         Streamlit->>Model: Whisper Transcription
         Model-->>Streamlit: Transcribed Text
-        Streamlit->>API: Groq API Analysis
+        Streamlit->>API: Groq Analysis
         API-->>Streamlit: Matched Disease
-        Streamlit->>Backend: Get Treatment Info
-        Backend->>DB: Query Knowledge Base
-        DB-->>Backend: Disease Data
-        Backend-->>Streamlit: Treatment Response
+        Streamlit->>DB: Query Disease Info
+        DB-->>Streamlit: Treatment Data
     else Text Input
-        Streamlit->>API: Groq API Analysis
+        Streamlit->>API: Groq Analysis
         API-->>Streamlit: Matched Disease
-        Streamlit->>Backend: Get Treatment Info
-        Backend->>DB: Query Knowledge Base
-        DB-->>Backend: Disease Data
-        Backend-->>Streamlit: Treatment Response
+        Streamlit->>DB: Query Disease Info
+        DB-->>Streamlit: Treatment Data
     end
     
     Streamlit->>DB: Save Diagnosis History
@@ -180,24 +172,18 @@ Intern-PlantChatBot-Project/
 │
 ├── 📂 backend/                        # Backend business logic
 │   ├── __init__.py                    # Module exports
-│   ├── api.py                         # API endpoints and routing
-│   ├── app.py                         # Flask/FastAPI application setup
+│   ├── api.py                         # Flask REST API endpoints
+│   ├── app.py                         # Flask app initialization
 │   ├── chatbot.py                     # Chatbot response generator
 │   ├── symptom_matcher.py             # Text/voice symptom classification
 │   ├── voice_handler.py               # Whisper audio transcription
 │   └── groq_fallback.py               # Groq API integration
 │
-├── 📂 knowledge/                      # Disease knowledge base
-│   ├── __init__.py                    # Module exports
-│   ├── diseases.json                  # Disease definitions & symptoms
-│   ├── treatments.py                  # Treatment lookup & formatting
-│   └── unknown_cases.json             # Unknown case logging
-│
 ├── 📂 database/                       # Database layer (SQLite)
-│   ├── __init__.py                    # Module initialization
-│   ├── db.py                          # Database connection & session
+│   ├── __init__.py                    # Module initialization & exports
+│   ├── db.py                          # Database query functions
 │   ├── models.py                      # SQLAlchemy ORM models
-│   ├── seed.py                        # Database seeding
+│   ├── seed.py                        # Database seeding with disease data
 │   └── plantdocbot.db                 # SQLite database file
 │
 ├── 📂 models/                         # Trained ML models
@@ -237,7 +223,7 @@ Main application and configuration files:
 | `train2.ipynb` | Secondary training notebook |
 
 ### `/frontend/`
-Frontend module containing:
+Frontend module containing additional UI components:
 
 | File | Purpose |
 |------|---------|
@@ -245,14 +231,14 @@ Frontend module containing:
 | `main.py` | Additional frontend utilities and components |
 
 ### `/backend/`
-Core business logic layer:
+Core business logic layer with Flask API:
 
 | File | Purpose |
 |------|---------|
 | `__init__.py` | Module exports and initialization |
-| `api.py` | REST API endpoints and routing |
-| `app.py` | Flask/FastAPI application setup |
-| `chatbot.py` | Chatbot response generator |
+| `api.py` | Flask REST API endpoints for HTTP requests |
+| `app.py` | Flask application initialization and setup |
+| `chatbot.py` | Chatbot response generator and conversation logic |
 | `symptom_matcher.py` | Text/voice symptom classification using Groq API |
 | `voice_handler.py` | OpenAI Whisper integration for speech-to-text |
 | `groq_fallback.py` | Groq API client for LLM-based classification |
@@ -263,32 +249,30 @@ Core business logic layer:
 - `transcribe_audio()` - Convert speech to text locally
 - `classify_symptoms_with_groq()` - LLM-based semantic disease matching
 
-### `/knowledge/`
-Structured disease database:
+### `/database/`
+SQLite database persistence layer with disease knowledge:
 
 | File | Purpose |
 |------|---------|
-| `__init__.py` | Module exports |
-| `diseases.json` | Disease definitions, symptoms, treatments, prevention |
-| `treatments.py` | Treatment lookup with confidence-aware handling |
-| `unknown_cases.json` | Logs unknown disease cases for review |
+| `__init__.py` | Module initialization and exports |
+| `db.py` | Database query functions for diseases, treatments, history |
+| `models.py` | SQLAlchemy ORM models (Disease, Symptom, Treatment, etc.) |
+| `seed.py` | Database seeding with disease data, symptoms, treatments |
+| `plantdocbot.db` | SQLite database file with all disease information |
 
 **Key Functions:**
 - `get_treatment()` - Retrieve treatment info with confidence handling
 - `format_treatment_response()` - Format treatment as markdown
 - `get_uncertain_response()` - Handle low-confidence predictions
-- `_log_unknown_case()` - Log unknown diseases for future improvement
+- `get_all_disease_keys()` - Get list of all supported diseases
+- `init_db()` - Initialize database with tables and seed data
 
-### `/database/`
-SQLite database persistence layer:
-
-| File | Purpose |
-|------|---------|
-| `__init__.py` | Module initialization |
-| `db.py` | Database connection and session management |
-| `models.py` | SQLAlchemy ORM models |
-| `seed.py` | Database seeding with initial data |
-| `plantdocbot.db` | SQLite database file |
+**Database Schema:**
+- `diseases` - Disease definitions (key, name, crop, type, severity, cause)
+- `symptoms` - Disease symptoms linked to diseases
+- `treatments` - Treatment steps for each disease
+- `prevention` - Prevention tips for each disease
+- `diagnosis_history` - User diagnosis history (if implemented)
 
 ### `/models/`
 Trained machine learning models:
@@ -297,7 +281,7 @@ Trained machine learning models:
 |------|---------|
 | `resnet50_plantvillage_checkpoint.pth` | PyTorch ResNet50 trained on PlantVillage (15 classes) |
 
-**Model Classes:**
+**Model Classes (15 total):**
 1. Pepper__bell___Bacterial_spot
 2. Pepper__bell___healthy
 3. Potato___Early_blight
@@ -315,12 +299,12 @@ Trained machine learning models:
 15. Tomato___healthy
 
 ### `/testing_data/`
-Sample test data:
+Sample test data for development and testing:
 
 | Content | Purpose |
 |---------|---------|
-| `*.JPG` | Sample leaf images for testing |
-| `*.mp3` | Sample audio files for voice testing |
+| `*.JPG` | Sample leaf images for testing image diagnosis |
+| `*.mp3` | Sample audio files for testing voice diagnosis |
 
 ### `/.streamlit/`
 Streamlit configuration:
@@ -342,14 +326,13 @@ Streamlit configuration:
 | Component | Technology | Role |
 |-----------|------------|------|
 | **Core Framework** | Streamlit | UI & Application Logic |
-| **Backend API** | Flask/FastAPI | REST API endpoints |
+| **Backend API** | Flask + Flask-CORS | REST API endpoints |
 | **Deep Learning** | PyTorch / Torchvision | Image Classification (ResNet50) |
 | **Speech-to-Text** | OpenAI Whisper | Local Audio Transcription |
 | **LLM / API** | Groq (`llama-3.3-70b-versatile`) | Semantic Symptom Analysis |
-| **Database** | SQLite / SQLAlchemy | Data persistence |
-| **Data Handling** | Pandas / JSON | Knowledge Base Management |
+| **Database** | SQLite + SQLAlchemy | Data persistence |
 | **Environment** | python-dotenv | Configuration management |
-| **Containerization** | Docker / Docker Compose | Deployment |
+| **Containerization** | Docker + Docker Compose | Deployment |
 
 ---
 
@@ -388,7 +371,14 @@ cp .env.example .env
 # GROQ_API_KEY=gsk_your_api_key_here
 ```
 
-### 5. Run Application
+### 5. Initialize Database
+```bash
+# Database will auto-initialize on first run
+# Or manually initialize:
+python -c "from database import init_db; init_db()"
+```
+
+### 6. Run Application
 ```bash
 streamlit run app.py
 ```
@@ -432,17 +422,25 @@ docker run -p 8501:8501 \
 ## 🌱 Supported Diseases
 
 ### Tomato (10 classes)
-- 🦠 Bacterial Spot | 🍄 Early Blight | 🍄 Late Blight
-- 🍄 Leaf Mold | 🍄 Septoria Leaf Spot
-- 🕷️ Spider Mites (Two-spotted) | 🎯 Target Spot
-- 🦠 Yellow Leaf Curl Virus | 🦠 Mosaic Virus
+- 🦠 Bacterial Spot
+- 🍄 Early Blight
+- 🍄 Late Blight
+- 🍄 Leaf Mold
+- 🍄 Septoria Leaf Spot
+- 🕷️ Spider Mites (Two-spotted)
+- 🎯 Target Spot
+- 🦠 Yellow Leaf Curl Virus
+- 🦠 Mosaic Virus
 - ✅ Healthy
 
 ### Potato (3 classes)
-- 🍄 Early Blight | 🍄 Late Blight | ✅ Healthy
+- 🍄 Early Blight
+- 🍄 Late Blight
+- ✅ Healthy
 
 ### Pepper (2 classes)
-- 🦠 Bacterial Spot | ✅ Healthy
+- 🦠 Bacterial Spot
+- ✅ Healthy
 
 ---
 
@@ -496,9 +494,26 @@ result = process_voice_input("/path/to/audio.mp3")
 # }
 
 # Treatment Lookup
-from knowledge import get_treatment, format_treatment_response
+from database import get_treatment, format_treatment_response
 treatment = get_treatment("Tomato___Late_blight", confidence=0.85)
 response = format_treatment_response("Tomato___Late_blight", confidence=0.85)
+```
+
+### Flask API Endpoints
+
+```python
+# Start Flask API
+python -m backend.api
+
+# Or
+flask --app backend.api run --port 5000
+
+# Available endpoints:
+# POST /api/diagnose/image      - Image diagnosis
+# POST /api/diagnose/text       - Text diagnosis
+# POST /api/diagnose/voice      - Voice diagnosis
+# GET  /api/diseases            - List all diseases
+# GET  /api/diseases/<key>      - Get disease details
 ```
 
 ---
@@ -511,8 +526,9 @@ response = format_treatment_response("Tomato___Late_blight", confidence=0.85)
 | **"Model file not found"** | Verify `models/resnet50_*.pth` exists (~100MB) |
 | **"Groq API Error"** | Check `.env` file for valid `gsk_` key |
 | **Whisper download fails** | Check internet connection; model auto-downloads |
+| **Database errors** | Run `init_db()` to recreate tables |
 | **Docker exits immediately** | Check logs: `docker logs plantdocbot` |
-| **Low confidence**** | Use clear, well-lit images; avoid shadows |
+| **Low confidence** | Use clear, well-lit images; avoid shadows |
 
 ---
 
@@ -568,6 +584,12 @@ MIT License - see [LICENSE](LICENSE) file
 - [Streamlit](https://streamlit.io) - UI Framework
 - [PyTorch](https://pytorch.org) - Deep Learning
 - [OpenAI Whisper](https://github.com/openai/whisper) - Speech Recognition
+
+---
+
+## 📞 Support
+
+For issues and feature requests, please use the [GitHub Issues](https://github.com/springboardmentor88888-mahaprasad/Intern-PlantChatBot-Project/issues) page.
 
 ---
 
