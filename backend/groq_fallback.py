@@ -7,7 +7,21 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+# Force loading from project root to avoid path issues with Streamlit
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
+    print(f"DEBUG: Loaded .env from {dotenv_path}")
+else:
+    load_dotenv()
+    print("DEBUG: Loaded .env from default location")
+
+# Debug: Print key status (masked)
+key = os.environ.get("GROQ_API_KEY")
+if key:
+    print(f"DEBUG: GROQ_API_KEY loaded: {key[:10]}...")
+else:
+    print("DEBUG: GROQ_API_KEY NOT FOUND in environment")
 
 
 def _get_disease_keys():
@@ -47,7 +61,7 @@ Symptom description: "{symptom_text}"
 Return ONLY the disease key that best matches. No explanation, no formatting, just the key."""
 
         response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=50,
         )
@@ -65,5 +79,25 @@ Return ONLY the disease key that best matches. No explanation, no formatting, ju
         
         return "Unknown"
         
-    except Exception:
+
+    except Exception as e:
+        print(f"ERROR in classify_symptoms_with_groq: {str(e)}")
+        # Check for specific authentication or model errors
+        if "401" in str(e):
+            return "Error: Invalid API Key"
+        if "404" in str(e):
+            # Fallback to another model if the primary one fails
+            try:
+                print("Primary model failed, trying fallback model...")
+                response = client.chat.completions.create(
+                     model="llama3-70b-8192",
+                     messages=[{"role": "user", "content": prompt}],
+                     max_tokens=50,
+                )
+                result = response.choices[0].message.content.strip()
+                if result in disease_keys:
+                    return result
+            except Exception as e2:
+                print(f"Fallback model failed: {str(e2)}")
+        
         return "Unknown"

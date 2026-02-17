@@ -68,6 +68,7 @@ def transcribe_audio(audio_path: str) -> str:
         result = model.transcribe(audio_path)
         return result.get("text", "").strip()
     except Exception as e:
+        print(f"ERROR in transcribe_audio: {str(e)}")
         error_msg = str(e).lower()
         if "ffmpeg" in error_msg:
             return "ERROR: FFmpeg not found. Please install FFmpeg to use voice features."
