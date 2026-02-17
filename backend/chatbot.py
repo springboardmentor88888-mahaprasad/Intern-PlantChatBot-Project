@@ -1,7 +1,7 @@
 # Chatbot module for Plant Disease ChatBot
 
-from knowledge import get_treatment, format_treatment_response
-from knowledge.treatments import _diseases_data as TREATMENTS
+from database import get_treatment, format_treatment_response
+from database import get_all_diseases
 
 
 class PlantDiseaseBot:
@@ -20,7 +20,7 @@ class PlantDiseaseBot:
     
     def get_disease_list(self) -> str:
         """Return a list of diseases the bot knows about."""
-        diseases = [info['disease'] for info in TREATMENTS.values()]
+        diseases = [info['disease'] for info in get_all_diseases()]
         response = "🌱 **Diseases I can help with:**\n\n"
         for disease in diseases:
             response += f"  • {disease}\n"

@@ -2,7 +2,7 @@
 
 from .voice_handler import transcribe_audio
 from .symptom_matcher import text_diagnosis
-from knowledge import format_treatment_response
+from database import format_treatment_response
 
 def process_voice_input(audio_path: str) -> dict:
     """

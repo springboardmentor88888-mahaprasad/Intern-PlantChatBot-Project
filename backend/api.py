@@ -108,7 +108,7 @@ def create_app():
             return jsonify({"error": "Missing 'text' field"}), 400
 
         from backend.symptom_matcher import text_diagnosis
-        from knowledge import format_treatment_response
+        from database import format_treatment_response
 
         disease_key = text_diagnosis(text)
 
@@ -197,7 +197,7 @@ def create_app():
             for i in range(len(top3.indices))
         ]
 
-        from knowledge import format_treatment_response
+        from database import format_treatment_response
         return jsonify({
             "disease_key": disease_key,
             "confidence": round(confidence, 4),
@@ -211,7 +211,7 @@ def create_app():
     @app.route("/api/diseases", methods=["GET"])
     def list_diseases():
         """List all known diseases."""
-        from knowledge.treatments import get_all_disease_keys
+        from database import get_all_disease_keys
         return jsonify({"diseases": get_all_disease_keys()})
 
     return app

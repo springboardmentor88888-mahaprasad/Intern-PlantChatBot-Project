@@ -8,7 +8,7 @@
 
 ### 1. 📷 Image Diagnosis (Offline / Local)
 - **Model:** ResNet50 (PyTorch) trained on the PlantVillage dataset.
-- **Function:** Upload a leaf image -> Model predicts the disease class locally.
+- **Function:** Upload a leaf image → Model predicts the disease class locally.
 - **Classes:** Supports **15 disease classes** (Tomato, Potato, Pepper).
 - **Features:** Shows top-3 prediction confidence percentages.
 
@@ -29,85 +29,45 @@
 
 ---
 
-## 🏗️ Architecture Overview
-
-### System Architecture Diagram
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart TB
-    subgraph User_Interface["🖥️ User Interface (Streamlit)"]
-        UI[app.py
-        Streamlit Web App]
+    subgraph Client["🖥️ Client Layer"]
+        UI[Streamlit Frontend<br/>app.py]
     end
 
-    subgraph Input_Methods["📥 Input Methods"]
-        IMG[📷 Image Upload
-        JPG/PNG/JPEG]
-        VOICE[🎤 Voice Input
-        MP3/WAV/M4A/OGG]
-        TEXT[💬 Text Input
-        Symptom Description]
+    subgraph Application["⚙️ Application Layer"]
+        API[Backend API<br/>backend/api.py]
+        IMG[Image Processor<br/>PyTorch/ResNet50]
+        WHISPER[Whisper Model<br/>Speech-to-Text]
+        SYMPTOM[Symptom Matcher<br/>Groq LLM]
+        CHATBOT[Chatbot Logic<br/>Response Generator]
     end
 
-    subgraph Backend_Layer["⚙️ Backend Layer"]
-        IMG_PROC[Image Processor
-        PyTorch/ResNet50]
-        WHISPER[Whisper Model
-        Tiny - 75MB]
-        SYMPTOM[Symptom Matcher
-        Groq API]
-        CHATBOT[Chatbot Logic
-        Response Generator]
+    subgraph Data["💾 Data Layer"]
+        SQLITE[(SQLite DB<br/>plantdocbot.db)]
+        JSON[diseases.json<br/>Knowledge Base]
+        MODEL[resnet50_model.pth<br/>ML Model]
     end
 
-    subgraph Knowledge_Base["📚 Knowledge Base"]
-        DISEASES[diseases.json
-        Disease Definitions]
-        TREATMENTS[treatments.py
-        Treatment Lookup]
-        UNKNOWN[unknown_cases.json
-        Unknown Case Logging]
+    subgraph External["🌐 External Services"]
+        GROQ[Groq API<br/>Llama 3.3 70B]
     end
 
-    subgraph AI_Models["🤖 AI Models"]
-        RESNET[ResNet50 Model
-        15 Classes]
-        GROQ[Groq API
-        Llama 3.3 70B]
-    end
-
-    subgraph Output["📤 Output"]
-        DIAGNOSIS[Diagnosis Result
-        Disease + Confidence]
-        TREATMENT_OUT[Treatment Plan
-        Steps + Prevention]
-    end
-
-    UI --> IMG
-    UI --> VOICE
-    UI --> TEXT
-
-    IMG --> IMG_PROC
-    VOICE --> WHISPER
-    TEXT --> SYMPTOM
-    WHISPER --> SYMPTOM
-
-    IMG_PROC --> RESNET
-    SYMPTOM --> GROQ
-
-    IMG_PROC --> DISEASES
-    SYMPTOM --> DISEASES
-
-    DISEASES --> TREATMENTS
-    RESNET --> CHATBOT
-    TREATMENTS --> CHATBOT
-
-    CHATBOT --> DIAGNOSIS
-    CHATBOT --> TREATMENT_OUT
-    DIAGNOSIS --> UI
-    TREATMENT_OUT --> UI
-
-    UNKNOWN -.-> DISEASES
+    UI -->|HTTP/REST| API
+    UI -->|Direct Import| IMG
+    UI -->|Direct Import| WHISPER
+    UI -->|Direct Import| CHATBOT
+    
+    API -->|Store/Retrieve| SQLITE
+    IMG -->|Load| MODEL
+    WHISPER -->|Query| GROQ
+    SYMPTOM -->|Query| GROQ
+    CHATBOT -->|Read| JSON
+    
+    IMG -->|Lookup| JSON
+    SYMPTOM -->|Lookup| JSON
 ```
 
 ---
@@ -120,11 +80,11 @@ flowchart TD
     
     Landing --> ChooseInput{Choose Input Method}
     
-    ChooseInput -->|Upload Image| UploadImg[Upload Leaf Photo]
-    ChooseInput -->|Record Voice| UploadVoice[Upload Audio File]
-    ChooseInput -->|Type Text| EnterText[Enter Symptom Description]
+    ChooseInput -->|📷 Upload Image| UploadImg[Upload Leaf Photo<br/>JPG/PNG]
+    ChooseInput -->|🎤 Record Voice| UploadVoice[Upload Audio File<br/>MP3/WAV/M4A]
+    ChooseInput -->|💬 Type Text| EnterText[Enter Symptom Description]
     
-    UploadImg --> ProcessImg[AI Model Analyzes Image]
+    UploadImg --> ProcessImg[AI Model Analyzes Image<br/>ResNet50]
     UploadVoice --> Transcribe[Whisper Transcribes Audio]
     EnterText --> ClickDiagnose[Click Diagnose Button]
     
@@ -134,19 +94,64 @@ flowchart TD
     ProcessImg --> CheckConfidence{Confidence Level?}
     AnalyzeSymptoms --> CheckConfidence
     
-    CheckConfidence -->|High ≥80%| HighConf[Show Diagnosis + Treatment]
-    CheckConfidence -->|Moderate 40-80%| ModConf[Show Diagnosis + Disclaimer]
-    CheckConfidence -->|Low <40%| LowConf[Suggest Alternative Methods]
+    CheckConfidence -->|High ≥80%| HighConf[✅ Show Diagnosis + Treatment]
+    CheckConfidence -->|Moderate 40-80%| ModConf[⚠️ Show Diagnosis + Disclaimer]
+    CheckConfidence -->|Low <40%| LowConf[❓ Suggest Alternative Methods]
     
-    HighConf --> DisplayResult[Display Results]
+    HighConf --> DisplayResult[Display Results with<br/>Treatment & Prevention]
     ModConf --> DisplayResult
     LowConf --> DisplayResult
     
-    DisplayResult --> NewDiagnosis{New Diagnosis?}
+    DisplayResult --> SaveHistory[(Save to Database)]
+    SaveHistory --> NewDiagnosis{New Diagnosis?}
+    
     NewDiagnosis -->|Yes| ClearState[Clear All Data] --> Landing
     NewDiagnosis -->|No| DisplayResult
+    NewDiagnosis -->|Close| End([Close App])
+```
+
+---
+
+## 🔄 Data Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Streamlit as Streamlit UI
+    participant Backend as Backend Layer
+    participant Model as ML Models
+    participant DB as SQLite DB
+    participant API as External APIs
+
+    User->>Streamlit: Upload Image/Voice/Text
     
-    NewDiagnosis --> End([Close App])
+    alt Image Upload
+        Streamlit->>Model: Load ResNet50
+        Model-->>Streamlit: Predictions
+        Streamlit->>Backend: Get Treatment Info
+        Backend->>DB: Query Knowledge Base
+        DB-->>Backend: Disease Data
+        Backend-->>Streamlit: Treatment Response
+    else Voice Input
+        Streamlit->>Model: Whisper Transcription
+        Model-->>Streamlit: Transcribed Text
+        Streamlit->>API: Groq API Analysis
+        API-->>Streamlit: Matched Disease
+        Streamlit->>Backend: Get Treatment Info
+        Backend->>DB: Query Knowledge Base
+        DB-->>Backend: Disease Data
+        Backend-->>Streamlit: Treatment Response
+    else Text Input
+        Streamlit->>API: Groq API Analysis
+        API-->>Streamlit: Matched Disease
+        Streamlit->>Backend: Get Treatment Info
+        Backend->>DB: Query Knowledge Base
+        DB-->>Backend: Disease Data
+        Backend-->>Streamlit: Treatment Response
+    end
+    
+    Streamlit->>DB: Save Diagnosis History
+    Streamlit-->>User: Display Results
 ```
 
 ---
@@ -159,19 +164,28 @@ Intern-PlantChatBot-Project/
 ├── 📄 app.py                          # Main entry point - Streamlit UI
 ├── 📄 requirements.txt                # Python dependencies
 ├── 📄 .env                            # Environment variables (API keys) - GitIgnored
+├── 📄 .env.example                    # Environment variables template
 ├── 📄 .gitignore                      # Git ignore rules
 ├── 📄 LICENSE                         # Project license
+├── 📄 Dockerfile                      # Docker image definition
+├── 📄 docker-compose.yml              # Docker Compose configuration
+├── 📄 .dockerignore                   # Docker ignore rules
 │
 ├── 📂 .streamlit/                     # Streamlit configuration
 │   └── config.toml                    # Theme configuration (Light theme)
 │
+├── 📂 frontend/                       # Frontend module
+│   ├── __init__.py                    # Module initialization
+│   └── main.py                        # Additional frontend utilities
+│
 ├── 📂 backend/                        # Backend business logic
 │   ├── __init__.py                    # Module exports
+│   ├── api.py                         # API endpoints and routing
+│   ├── app.py                         # Flask/FastAPI application setup
 │   ├── chatbot.py                     # Chatbot response generator
 │   ├── symptom_matcher.py             # Text/voice symptom classification
 │   ├── voice_handler.py               # Whisper audio transcription
-│   ├── groq_fallback.py               # Groq API integration
-│   └── api.py                         # Additional API utilities
+│   └── groq_fallback.py               # Groq API integration
 │
 ├── 📂 knowledge/                      # Disease knowledge base
 │   ├── __init__.py                    # Module exports
@@ -180,16 +194,16 @@ Intern-PlantChatBot-Project/
 │   └── unknown_cases.json             # Unknown case logging
 │
 ├── 📂 database/                       # Database layer (SQLite)
-│   ├── __init__.py
-│   ├── db.py                          # Database connection
-│   ├── models.py                      # SQLAlchemy models
+│   ├── __init__.py                    # Module initialization
+│   ├── db.py                          # Database connection & session
+│   ├── models.py                      # SQLAlchemy ORM models
 │   ├── seed.py                        # Database seeding
 │   └── plantdocbot.db                 # SQLite database file
 │
 ├── 📂 models/                         # Trained ML models
-│   └── resnet50_plantvillage_checkpoint.pth  # PyTorch model weights
+│   └── resnet50_plantvillage_checkpoint.pth  # PyTorch ResNet50 weights
 │
-├── 📂 data/                           # Sample/test data
+├── 📂 testing_data/                   # Test data samples
 │   ├── *.JPG                          # Sample leaf images
 │   └── *.mp3                          # Sample audio files
 │
@@ -201,83 +215,87 @@ Intern-PlantChatBot-Project/
 └── 📄 train2.ipynb                    # Secondary training notebook
 ```
 
-### 📂 Folder Explanations
+---
 
-#### `/app.py`
-The main application entry point. This is a Streamlit-based web application that:
-- Renders the user interface with tabs for Image, Voice, and Text inputs
-- Loads the PyTorch ResNet50 model for image classification
-- Manages session state for diagnosis modes
-- Displays diagnosis results with treatment recommendations
-- Handles confidence-based result formatting
+## 📂 Folder Explanations
 
-#### `/backend/`
-Core business logic layer containing:
+### `/` (Root)
+Main application and configuration files:
 
 | File | Purpose |
 |------|---------|
-| `chatbot.py` | Response generator for greetings, disease lists, and treatment info |
-| `symptom_matcher.py` | Wrapper for text/voice symptom classification using Groq API |
-| `voice_handler.py` | Local Whisper model integration for speech-to-text transcription |
-| `groq_fallback.py` | Groq API client for semantic symptom classification using Llama 3.3 |
-| `api.py` | Additional API utilities and voice processing endpoint |
-| `__init__.py` | Module exports for clean imports |
+| `app.py` | Main Streamlit application entry point |
+| `requirements.txt` | Python package dependencies |
+| `.env` | Environment variables (API keys) - **GitIgnored** |
+| `.env.example` | Template for environment variables |
+| `.gitignore` | Git ignore patterns |
+| `LICENSE` | Project license |
+| `Dockerfile` | Docker image build configuration |
+| `docker-compose.yml` | Docker Compose orchestration |
+| `.dockerignore` | Files excluded from Docker context |
+| `train.ipynb` | Model training notebook |
+| `train2.ipynb` | Secondary training notebook |
+
+### `/frontend/`
+Frontend module containing:
+
+| File | Purpose |
+|------|---------|
+| `__init__.py` | Module initialization |
+| `main.py` | Additional frontend utilities and components |
+
+### `/backend/`
+Core business logic layer:
+
+| File | Purpose |
+|------|---------|
+| `__init__.py` | Module exports and initialization |
+| `api.py` | REST API endpoints and routing |
+| `app.py` | Flask/FastAPI application setup |
+| `chatbot.py` | Chatbot response generator |
+| `symptom_matcher.py` | Text/voice symptom classification using Groq API |
+| `voice_handler.py` | OpenAI Whisper integration for speech-to-text |
+| `groq_fallback.py` | Groq API client for LLM-based classification |
 
 **Key Functions:**
-- `text_diagnosis()` - Classify symptoms from text
-- `process_voice_input()` - Process audio files through Whisper + Groq
+- `text_diagnosis()` - Classify symptoms from text input
+- `process_voice_input()` - Process audio through Whisper + Groq pipeline
 - `transcribe_audio()` - Convert speech to text locally
-- `classify_symptoms_with_groq()` - LLM-based disease matching
+- `classify_symptoms_with_groq()` - LLM-based semantic disease matching
 
-#### `/knowledge/`
-Structured disease database containing:
+### `/knowledge/`
+Structured disease database:
 
 | File | Purpose |
 |------|---------|
-| `diseases.json` | JSON database with disease definitions, symptoms, treatments, and prevention |
-| `treatments.py` | Treatment lookup logic with confidence-aware handling |
-| `unknown_cases.json` | Logs unknown disease cases for future improvement |
 | `__init__.py` | Module exports |
-
-**Disease Data Structure:**
-```json
-{
-  "Disease_Key": {
-    "disease": "Human-readable name",
-    "crop": "Plant type (Tomato/Potato/Pepper)",
-    "type": "Fungal/Bacterial/Viral",
-    "severity": "Low/Medium/High",
-    "cause": "Causal agent",
-    "symptoms": ["list", "of", "symptoms"],
-    "treatment": ["treatment", "steps"],
-    "prevention": ["prevention", "tips"]
-  }
-}
-```
+| `diseases.json` | Disease definitions, symptoms, treatments, prevention |
+| `treatments.py` | Treatment lookup with confidence-aware handling |
+| `unknown_cases.json` | Logs unknown disease cases for review |
 
 **Key Functions:**
 - `get_treatment()` - Retrieve treatment info with confidence handling
 - `format_treatment_response()` - Format treatment as markdown
 - `get_uncertain_response()` - Handle low-confidence predictions
-- `_log_unknown_case()` - Log unknown diseases for review
+- `_log_unknown_case()` - Log unknown diseases for future improvement
 
-#### `/database/`
-SQLite database layer for data persistence:
+### `/database/`
+SQLite database persistence layer:
 
 | File | Purpose |
 |------|---------|
+| `__init__.py` | Module initialization |
 | `db.py` | Database connection and session management |
 | `models.py` | SQLAlchemy ORM models |
 | `seed.py` | Database seeding with initial data |
 | `plantdocbot.db` | SQLite database file |
-| `__init__.py` | Module initialization |
 
-#### `/models/`
-Contains the trained deep learning model:
+### `/models/`
+Trained machine learning models:
 
 | File | Purpose |
 |------|---------|
-| `resnet50_plantvillage_checkpoint.pth` | PyTorch ResNet50 trained on PlantVillage dataset (15 classes) |
+| `resnet50_plantvillage_checkpoint.pth` | PyTorch ResNet50 trained on PlantVillage (15 classes) |
 
 **Model Classes:**
 1. Pepper__bell___Bacterial_spot
@@ -296,35 +314,26 @@ Contains the trained deep learning model:
 14. Tomato___Tomato_mosaic_virus
 15. Tomato___healthy
 
-#### `/data/`
-Sample/test data directory containing:
-- Sample leaf images (JPG format) for testing
-- Sample audio files (MP3 format) for voice testing
+### `/testing_data/`
+Sample test data:
 
-#### `/.streamlit/`
-Streamlit configuration directory:
+| Content | Purpose |
+|---------|---------|
+| `*.JPG` | Sample leaf images for testing |
+| `*.mp3` | Sample audio files for voice testing |
+
+### `/.streamlit/`
+Streamlit configuration:
 
 | File | Purpose |
 |------|---------|
-| `config.toml` | UI theme configuration (light mode, colors, fonts) |
+| `config.toml` | UI theme configuration (colors, fonts, layout) |
 
 **Theme Settings:**
 - Base: Light
 - Primary Color: #2e7d32 (Green)
 - Background: #ffffff (White)
 - Font: Sans Serif
-
-#### `/` (Root)
-Project root files:
-
-| File | Purpose |
-|------|---------|
-| `requirements.txt` | Python package dependencies |
-| `.env` | Environment variables (GROQ_API_KEY) - **GitIgnored** |
-| `.gitignore` | Git ignore patterns |
-| `LICENSE` | Project license |
-| `train.ipynb` | Jupyter notebook for model training |
-| `train2.ipynb` | Secondary training notebook |
 
 ---
 
@@ -333,12 +342,14 @@ Project root files:
 | Component | Technology | Role |
 |-----------|------------|------|
 | **Core Framework** | Streamlit | UI & Application Logic |
+| **Backend API** | Flask/FastAPI | REST API endpoints |
 | **Deep Learning** | PyTorch / Torchvision | Image Classification (ResNet50) |
 | **Speech-to-Text** | OpenAI Whisper | Local Audio Transcription |
 | **LLM / API** | Groq (`llama-3.3-70b-versatile`) | Semantic Symptom Analysis |
-| **Data Handling** | Pandas / JSON | Knowledge Base Management |
 | **Database** | SQLite / SQLAlchemy | Data persistence |
+| **Data Handling** | Pandas / JSON | Knowledge Base Management |
 | **Environment** | python-dotenv | Configuration management |
+| **Containerization** | Docker / Docker Compose | Deployment |
 
 ---
 
@@ -346,21 +357,21 @@ Project root files:
 
 ### 1. Prerequisites
 - **Python 3.9+**
-- **FFmpeg:** Required for Whisper to process audio files.
-  - *Windows:* `winget install Gyan.FFmpeg` or separate install.
+- **FFmpeg:** Required for Whisper audio processing
+  - *Windows:* `winget install Gyan.FFmpeg`
   - *Linux:* `sudo apt install ffmpeg`
   - *Mac:* `brew install ffmpeg`
-- **Groq API Key:** Required for Text/Voice features. Get it from [Groq Console](https://console.groq.com).
+- **Groq API Key:** Get from [Groq Console](https://console.groq.com)
 
-### 2. Clone & Environment
+### 2. Clone & Setup
 ```bash
 git clone https://github.com/springboardmentor88888-mahaprasad/Intern-PlantChatBot-Project.git
 cd Intern-PlantChatBot-Project
 
 # Create Virtual Environment
 python -m venv .venv
-.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Mac/Linux
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate  # Windows
 ```
 
 ### 3. Install Dependencies
@@ -368,122 +379,79 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 4. Configure API Key
-Create a `.env` file in the root directory:
+### 4. Configure Environment
 ```bash
-GROQ_API_KEY=gsk_your_actual_api_key_here
+# Copy example environment file
+cp .env.example .env
+
+# Edit .env with your API key
+# GROQ_API_KEY=gsk_your_api_key_here
 ```
 
-### 5. Run the Application
+### 5. Run Application
 ```bash
 streamlit run app.py
 ```
 
 ---
 
-## 🐳 Docker Setup
+## 🐳 Docker Deployment
 
-### Quick Start with Docker
-
-#### Option 1: Using Docker Compose (Recommended)
-
-1. **Ensure `docker-compose.yml` exists** (see Docker files section below)
-
-2. **Build and Run:**
+### Quick Start
 ```bash
-# Create .env file with your API key
-echo "GROQ_API_KEY=gsk_your_key_here" > .env
+# Copy environment file
+cp .env.example .env
+# Edit .env with your GROQ_API_KEY
 
-# Build and start the container
+# Build and run with Docker Compose
 docker-compose up --build
 
-# Access the app at http://localhost:8501
+# Access at http://localhost:8501
 ```
 
-#### Option 2: Using Docker Run
-
+### Docker Commands
 ```bash
-# Build the image
+# Build image
 docker build -t plantdocbot .
 
-# Run the container
+# Run container
 docker run -p 8501:8501 \
-  -e GROQ_API_KEY=gsk_your_key_here \
+  -e GROQ_API_KEY=gsk_your_key \
   -v $(pwd)/models:/app/models \
-  -v $(pwd)/knowledge:/app/knowledge \
   plantdocbot
-```
 
-#### Option 3: Development Mode with Volume Mounting
-
-```bash
-# Run with hot-reload for development
+# Development mode with hot-reload
 docker run -p 8501:8501 \
-  -e GROQ_API_KEY=gsk_your_key_here \
+  -e GROQ_API_KEY=gsk_your_key \
   -v $(pwd):/app \
-  -v /app/.venv \
-  plantdocbot \
-  streamlit run app.py --server.port=8501 --server.address=0.0.0.0
-```
-
-### Docker Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GROQ_API_KEY` | Yes | Groq API key for text/voice diagnosis |
-| `STREAMLIT_SERVER_PORT` | No | Port to run Streamlit (default: 8501) |
-| `STREAMLIT_SERVER_ADDRESS` | No | Bind address (default: 0.0.0.0) |
-| `STREAMLIT_BROWSER_GATHER_USAGE_STATS` | No | Disable telemetry (default: false) |
-
-### Docker Files Structure
-
-The project includes the following Docker-related files:
-
-```
-├── Dockerfile              # Main Docker image definition
-├── docker-compose.yml      # Docker Compose configuration
-├── .dockerignore          # Files to exclude from Docker context
-└── README.md              # This documentation
+  plantdocbot
 ```
 
 ---
 
 ## 🌱 Supported Diseases
 
-The system is optimized for **Tomato** plants but trained on a wider set:
-
-### Tomato Diseases:
-- 🦠 Bacterial Spot
-- 🍄 Early Blight
-- 🍄 Late Blight
-- 🍄 Leaf Mold
-- 🍄 Septoria Leaf Spot
-- 🕷️ Spider Mites (Two-spotted spider mite)
-- 🎯 Target Spot
-- 🦠 Yellow Leaf Curl Virus
-- 🦠 Mosaic Virus
+### Tomato (10 classes)
+- 🦠 Bacterial Spot | 🍄 Early Blight | 🍄 Late Blight
+- 🍄 Leaf Mold | 🍄 Septoria Leaf Spot
+- 🕷️ Spider Mites (Two-spotted) | 🎯 Target Spot
+- 🦠 Yellow Leaf Curl Virus | 🦠 Mosaic Virus
 - ✅ Healthy
 
-### Potato Diseases:
-- 🍄 Early Blight
-- 🍄 Late Blight
-- ✅ Healthy
+### Potato (3 classes)
+- 🍄 Early Blight | 🍄 Late Blight | ✅ Healthy
 
-### Pepper Diseases:
-- 🦠 Bacterial Spot
-- ✅ Healthy
+### Pepper (2 classes)
+- 🦠 Bacterial Spot | ✅ Healthy
 
 ---
 
-## 🔧 Configuration
+## ⚙️ Configuration
 
-### Environment Variables
-
-Create a `.env` file with:
-
+### Environment Variables (.env)
 ```bash
 # Required
-GROQ_API_KEY=gsk_your_actual_api_key_here
+GROQ_API_KEY=gsk_your_api_key_here
 
 # Optional
 STREAMLIT_SERVER_PORT=8501
@@ -491,10 +459,7 @@ STREAMLIT_SERVER_ADDRESS=0.0.0.0
 STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 ```
 
-### Streamlit Configuration
-
-Edit `.streamlit/config.toml`:
-
+### Streamlit Theme (.streamlit/config.toml)
 ```toml
 [theme]
 base="light"
@@ -505,139 +470,78 @@ textColor="#000000"
 font="sans serif"
 
 [server]
-port = 8501
-address = "0.0.0.0"
+port=8501
+address="0.0.0.0"
 ```
 
 ---
 
-## ⚠️ Troubleshooting
-
-### 1. "FFmpeg not found" error:
-- Ensure FFmpeg is installed and added to your system PATH.
-- **Windows:** `winget install Gyan.FFmpeg`
-- **Linux:** `sudo apt install ffmpeg`
-- **Mac:** `brew install ffmpeg`
-- Restart the terminal after installing FFmpeg.
-
-### 2. "Model file not found":
-- Ensure `models/resnet50_plantvillage_checkpoint.pth` exists.
-- The model file should be ~100MB. If it's smaller, it may be corrupted.
-
-### 3. "Groq API Error":
-- Check your `.env` file and ensure the API key is valid.
-- Verify the key starts with `gsk_`.
-- Check your Groq console for API usage limits.
-
-### 4. Whisper model download fails:
-- The Whisper "tiny" model (~75MB) downloads automatically on first use.
-- Ensure stable internet connection for initial download.
-- The model is cached locally after first use.
-
-### 5. Docker container exits immediately:
-- Check logs: `docker logs plantdocbot`
-- Ensure all environment variables are set correctly.
-- Verify FFmpeg is installed in the Docker image.
-
-### 6. Low image prediction confidence:
-- Ensure the image is clear and well-lit.
-- The leaf should be centered and in focus.
-- Avoid shadows and glare on the leaf surface.
-- Supported formats: JPG, JPEG, PNG.
-
----
-
-## 📝 API Documentation
+## 📊 API Usage
 
 ### Backend Functions
 
-#### Image Diagnosis
 ```python
+# Image Diagnosis
 from backend import text_diagnosis
-
-# Diagnose from text description
 disease_key = text_diagnosis("brown spots with yellow halos")
 # Returns: "Tomato___Early_blight"
-```
 
-#### Voice Processing
-```python
+# Voice Processing
 from backend import process_voice_input
-
-# Process audio file
 result = process_voice_input("/path/to/audio.mp3")
 # Returns: {
 #     "transcription": "my tomato has brown spots",
 #     "disease_key": "Tomato___Early_blight",
 #     "error": None
 # }
-```
 
-#### Treatment Lookup
-```python
+# Treatment Lookup
 from knowledge import get_treatment, format_treatment_response
-
-# Get treatment info
 treatment = get_treatment("Tomato___Late_blight", confidence=0.85)
-
-# Format as markdown
 response = format_treatment_response("Tomato___Late_blight", confidence=0.85)
 ```
 
 ---
 
-## 🔄 Development Workflow
+## ⚠️ Troubleshooting
 
-### Adding New Diseases
-
-1. Edit `knowledge/diseases.json`:
-```json
-"New_Disease_Key": {
-    "disease": "Human Readable Name",
-    "crop": "Crop Type",
-    "type": "Fungal/Bacterial/Viral",
-    "severity": "Low/Medium/High",
-    "cause": "Causal agent",
-    "symptoms": ["symptom1", "symptom2"],
-    "treatment": ["step1", "step2"],
-    "prevention": ["tip1", "tip2"]
-}
-```
-
-2. The system will automatically pick up the new disease.
-
-### Training Custom Models
-
-Use the provided Jupyter notebooks:
-- `train.ipynb` - Main training notebook
-- `train2.ipynb` - Alternative training approach
-
-### Running Tests
-
-```bash
-# Install test dependencies
-pip install pytest pytest-cov
-
-# Run tests
-pytest tests/
-```
+| Issue | Solution |
+|-------|----------|
+| **"FFmpeg not found"** | Install FFmpeg and add to PATH |
+| **"Model file not found"** | Verify `models/resnet50_*.pth` exists (~100MB) |
+| **"Groq API Error"** | Check `.env` file for valid `gsk_` key |
+| **Whisper download fails** | Check internet connection; model auto-downloads |
+| **Docker exits immediately** | Check logs: `docker logs plantdocbot` |
+| **Low confidence**** | Use clear, well-lit images; avoid shadows |
 
 ---
 
-## 📊 Performance Metrics
+## 🔮 Future Improvements
 
-| Feature | Speed | Accuracy | Resource Usage |
-|---------|-------|----------|----------------|
-| Image Diagnosis | ~2-3 seconds | 85-95% (high conf) | Medium (GPU optional) |
-| Voice Processing | ~5-10 seconds | Depends on audio quality | Low |
-| Text Diagnosis | ~2-4 seconds | 80-90% | Low |
+### High Priority
+- [ ] **User Authentication** - Login/signup with diagnosis history
+- [ ] **Batch Processing** - Upload and process multiple images
+- [ ] **Feedback Loop** - User feedback on diagnosis accuracy
+- [ ] **Image Preprocessing** - Auto-rotation, blur detection, crop suggestions
+
+### Medium Priority
+- [ ] **Multi-language Support** - Hindi, Spanish translations
+- [ ] **Weather Integration** - Disease prediction based on weather conditions
+- [ ] **Treatment Tracking** - Mark treatments applied, set reminders
+- [ ] **Mobile App** - React Native or Flutter application
+
+### Low Priority
+- [ ] **Analytics Dashboard** - Usage statistics and insights
+- [ ] **Export Reports** - PDF diagnosis reports
+- [ ] **Progressive Web App** - Offline capability
+- [ ] **ONNX Optimization** - Mobile and edge deployment
 
 ---
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
+2. Create feature branch: `git checkout -b feature/amazing-feature`
 3. Commit changes: `git commit -m 'Add amazing feature'`
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
@@ -646,57 +550,24 @@ pytest tests/
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file
 
 ---
 
 ## 👥 Team
 
 **Mentor:** Mahaprasad Jena  
-*Intern project for automated plant disease diagnosis using AI.*
+**Project:** AI Plant Disease Diagnosis System
 
 ---
 
 ## 🙏 Acknowledgments
 
-- [PlantVillage Dataset](https://github.com/spMohanty/PlantVillage-Dataset) - Training data
+- [PlantVillage Dataset](https://github.com/spMohanty/PlantVillage-Dataset)
 - [Groq](https://groq.com) - LLM API
 - [Streamlit](https://streamlit.io) - UI Framework
-- [PyTorch](https://pytorch.org) - Deep Learning Framework
-- [OpenAI Whisper](https://github.com/openai/whisper) - Speech recognition
-
----
-
-## 📞 Support
-
-For issues and feature requests, please use the [GitHub Issues](https://github.com/springboardmentor88888-mahaprasad/Intern-PlantChatBot-Project/issues) page.
-
----
-
-## 🐳 Docker Files
-
-The following Docker configuration files are included in this project:
-
-### 1. Dockerfile
-Located at: `./Dockerfile`
-- Defines the Docker image build process
-- Based on Python 3.11 slim
-- Includes FFmpeg for audio processing
-- Configures Streamlit application
-
-### 2. docker-compose.yml
-Located at: `./docker-compose.yml`
-- Simplifies container orchestration
-- Handles environment variables
-- Manages volume mounts for persistent data
-
-### 3. .dockerignore
-Located at: `./.dockerignore`
-- Excludes unnecessary files from Docker build context
-- Improves build performance
-- Reduces image size
-
-**Note:** These files contain dummy code placeholders marked with `# TODO:` comments. Replace them with your actual implementation as needed.
+- [PyTorch](https://pytorch.org) - Deep Learning
+- [OpenAI Whisper](https://github.com/openai/whisper) - Speech Recognition
 
 ---
 

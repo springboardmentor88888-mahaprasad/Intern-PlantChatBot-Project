@@ -12,7 +12,7 @@ from torchvision import models, transforms
 from PIL import Image
 
 from backend import text_diagnosis, process_voice_input
-from knowledge import get_treatment, format_treatment_response, get_uncertain_response
+from database import get_treatment, format_treatment_response, get_uncertain_response
 import tempfile
 
 # ---------------- CONFIG ----------------
@@ -244,8 +244,8 @@ def load_model():
     else:
         class_names = checkpoint.get("class_names", [])[:num_classes]
         if not class_names:
-            from knowledge.treatments import _diseases_data as TREATMENTS
-            class_names = list(TREATMENTS.keys())[:num_classes]
+            from database import get_all_disease_keys
+            class_names = get_all_disease_keys()[:num_classes]
             if len(class_names) < num_classes:
                 class_names.extend([f"Disease_{i}" for i in range(len(class_names), num_classes)])
 

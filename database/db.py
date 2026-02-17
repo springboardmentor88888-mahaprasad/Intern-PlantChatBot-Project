@@ -204,5 +204,29 @@ def log_unknown_case(disease_key: str, confidence: float = None, source: str = N
         )
         conn.commit()
         conn.close()
+
     except Exception:
         pass
+
+
+def get_uncertain_response() -> dict:
+    """
+    Return a standard response for low-confidence predictions.
+    """
+    return {
+        "disease": "Uncertain",
+        "crop": "Unknown",
+        "type": "Unknown",
+        "severity": "Unknown",
+        "cause": "Prediction confidence too low",
+        "symptoms": "Could not reliably identify symptoms",
+        "treatment": [
+            "Please provide a clearer image",
+            "Try describing symptoms in more detail",
+            "Consider uploading a voice description"
+        ],
+        "prevention": [],
+        "found": False,
+        "confidence_level": "low",
+        "confidence_value": None
+    }

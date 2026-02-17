@@ -4,6 +4,6 @@ env/
 __pycache__/
 
 README.md
-knowledge/unknown_cases.json
 .env
 testing_data/
+database/plantdocbot.db

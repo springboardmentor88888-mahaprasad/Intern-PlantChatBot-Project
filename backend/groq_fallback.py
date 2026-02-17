@@ -26,8 +26,8 @@ else:
 
 def _get_disease_keys():
     """Get valid disease keys from the knowledge base."""
-    from knowledge.treatments import _diseases_data
-    return list(_diseases_data.keys())
+    from database import get_all_disease_keys
+    return get_all_disease_keys()
 
 
 def classify_symptoms_with_groq(symptom_text: str) -> str:
