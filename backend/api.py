@@ -32,40 +32,24 @@ def create_app():
         """Load the image classification model once."""
         if "model" not in _model_cache:
             import torch
-            from torchvision import models, transforms
+            from torchvision import transforms
+            import timm
 
-            MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "resnet50_plantvillage_checkpoint.pth")
-            PLANTVILLAGE_CLASSES = [
-                "Pepper__bell___Bacterial_spot",
-                "Pepper__bell___healthy",
-                "Potato___Early_blight",
-                "Potato___Late_blight",
-                "Potato___healthy",
-                "Tomato___Bacterial_spot",
-                "Tomato___Early_blight",
-                "Tomato___Late_blight",
-                "Tomato___Leaf_Mold",
-                "Tomato___Septoria_leaf_spot",
-                "Tomato___Spider_mites Two-spotted_spider_mite",
-                "Tomato___Target_Spot",
-                "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
-                "Tomato___Tomato_mosaic_virus",
-                "Tomato___healthy",
-            ]
+            MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "resnet50_plantvillage_checkpoint1.pth")
 
             checkpoint = torch.load(MODEL_PATH, map_location="cpu")
             state_dict = checkpoint["model_state_dict"]
-            num_classes = state_dict["fc.weight"].shape[0]
 
-            if num_classes == len(PLANTVILLAGE_CLASSES):
-                class_names = PLANTVILLAGE_CLASSES
-            else:
-                class_names = checkpoint.get("class_names", [])[:num_classes]
-                if not class_names:
-                    class_names = [f"Disease_{i}" for i in range(num_classes)]
+            # Get class mappings from checkpoint
+            class_to_idx = checkpoint["class_to_idx"]
+            idx_to_class = checkpoint["idx_to_class"]
+            num_classes = len(class_to_idx)
 
-            model = models.resnet50(weights=None)
-            model.fc = torch.nn.Linear(2048, num_classes)
+            # Build ordered class_names list from idx_to_class
+            class_names = [idx_to_class[i] for i in range(num_classes)]
+
+            # Create EfficientNetV2-Small model
+            model = timm.create_model('tf_efficientnetv2_s', pretrained=False, num_classes=num_classes)
             model.load_state_dict(state_dict, strict=True)
             model.eval()
 
@@ -189,6 +173,10 @@ def create_app():
         pred_idx = torch.argmax(probs).item()
         disease_key = class_names[pred_idx]
         confidence = probs[pred_idx].item()
+
+        # Guard: reject non-plant images
+        if disease_key == "Not_a_Plant":
+            return jsonify({"error": "Not a plant leaf. Please upload a plant image.", "disease_key": "Not_a_Plant"}), 400
 
         # Top-3 predictions
         top3 = torch.topk(probs, min(3, len(class_names)))

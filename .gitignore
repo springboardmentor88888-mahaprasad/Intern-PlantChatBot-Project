@@ -7,3 +7,4 @@ README.md
 .env
 testing_data/
 database/plantdocbot.db
+models/*.pth

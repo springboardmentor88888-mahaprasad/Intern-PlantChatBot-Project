@@ -7,9 +7,9 @@
 ## ✨ Key Features
 
 ### 1. 📷 Image Diagnosis (Offline / Local)
-- **Model:** ResNet50 (PyTorch) trained on the PlantVillage dataset.
+- **Model:** EfficientNetV2-Small (PyTorch + timm) trained on the PlantVillage dataset.
 - **Function:** Upload a leaf image → Model predicts the disease class locally.
-- **Classes:** Supports **15 disease classes** (Tomato, Potato, Pepper).
+- **Classes:** Supports **16 classes** (Tomato, Potato, Pepper + Not_a_Plant rejection).
 - **Features:** Shows top-3 prediction confidence percentages.
 
 ### 2. 🎤 Voice Assistant (Hybrid)
@@ -39,7 +39,7 @@ flowchart TB
 
     subgraph Application["⚙️ Application Layer"]
         API[Backend API<br/>backend/api.py]
-        IMG[Image Processor<br/>PyTorch/ResNet50]
+        IMG[Image Processor<br/>PyTorch/EfficientNetV2-S]
         WHISPER[Whisper Model<br/>Speech-to-Text]
         SYMPTOM[Symptom Matcher<br/>Groq LLM]
         CHATBOT[Chatbot Logic<br/>backend/chatbot.py]
@@ -47,7 +47,7 @@ flowchart TB
 
     subgraph Data["💾 Data Layer"]
         SQLITE[(SQLite DB<br/>plantdocbot.db)]
-        MODEL[resnet50_model.pth<br/>ML Model]
+        MODEL[efficientnetv2_model.pth<br/>ML Model]
     end
 
     subgraph External["🌐 External Services"]
@@ -82,7 +82,7 @@ flowchart TD
     ChooseInput -->|🎤 Record Voice| UploadVoice[Upload Audio File<br/>MP3/WAV/M4A]
     ChooseInput -->|💬 Type Text| EnterText[Enter Symptom Description]
     
-    UploadImg --> ProcessImg[AI Model Analyzes Image<br/>ResNet50]
+    UploadImg --> ProcessImg[AI Model Analyzes Image<br/>EfficientNetV2-S]
     UploadVoice --> Transcribe[Whisper Transcribes Audio]
     EnterText --> ClickDiagnose[Click Diagnose Button]
     
@@ -124,7 +124,7 @@ sequenceDiagram
     User->>Streamlit: Upload Image/Voice/Text
     
     alt Image Upload
-        Streamlit->>Model: Load ResNet50
+        Streamlit->>Model: Load EfficientNetV2-S
         Model-->>Streamlit: Predictions
         Streamlit->>DB: Query Disease Info
         DB-->>Streamlit: Treatment Data
@@ -187,7 +187,7 @@ Intern-PlantChatBot-Project/
 │   └── plantdocbot.db                 # SQLite database file
 │
 ├── 📂 models/                         # Trained ML models
-│   └── resnet50_plantvillage_checkpoint.pth  # PyTorch ResNet50 weights
+│   └── resnet50_plantvillage_checkpoint1.pth # EfficientNetV2-S weights (16 classes)
 │
 ├── 📂 testing_data/                   # Test data samples
 │   ├── *.JPG                          # Sample leaf images
@@ -279,9 +279,9 @@ Trained machine learning models:
 
 | File | Purpose |
 |------|---------|
-| `resnet50_plantvillage_checkpoint.pth` | PyTorch ResNet50 trained on PlantVillage (15 classes) |
+| `resnet50_plantvillage_checkpoint1.pth` | EfficientNetV2-Small trained on PlantVillage (16 classes) |
 
-**Model Classes (15 total):**
+**Model Classes (16 total):**
 1. Pepper__bell___Bacterial_spot
 2. Pepper__bell___healthy
 3. Potato___Early_blight
@@ -297,6 +297,7 @@ Trained machine learning models:
 13. Tomato___Tomato_Yellow_Leaf_Curl_Virus
 14. Tomato___Tomato_mosaic_virus
 15. Tomato___healthy
+16. Not_a_Plant _(rejection class)_
 
 ### `/testing_data/`
 Sample test data for development and testing:
@@ -327,7 +328,7 @@ Streamlit configuration:
 |-----------|------------|------|
 | **Core Framework** | Streamlit | UI & Application Logic |
 | **Backend API** | Flask + Flask-CORS | REST API endpoints |
-| **Deep Learning** | PyTorch / Torchvision | Image Classification (ResNet50) |
+| **Deep Learning** | PyTorch / timm | Image Classification (EfficientNetV2-S) |
 | **Speech-to-Text** | OpenAI Whisper | Local Audio Transcription |
 | **LLM / API** | Groq (`llama-3.3-70b-versatile`) | Semantic Symptom Analysis |
 | **Database** | SQLite + SQLAlchemy | Data persistence |

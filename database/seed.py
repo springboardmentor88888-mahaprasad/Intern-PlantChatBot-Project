@@ -1,4 +1,4 @@
-# Seed script — populates the database with all 15 PLANTVILLAGE_CLASSES
+# Seed script — populates the database with all 16 PLANTVILLAGE_CLASSES
 # Run once: python -m database.seed
 
 import sys
@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.models import create_tables, get_connection
 
 # ============================================================================
-# All 15 PlantVillage classes with complete disease information
+# All 16 PlantVillage classes with complete disease information
 # ============================================================================
 SEED_DATA = [
     {
@@ -447,6 +447,27 @@ SEED_DATA = [
             "Proper nutrition and watering",
             "Good garden hygiene",
             "Adequate spacing for air circulation"
+        ]
+    },
+    {
+        "disease_key": "Not_a_Plant",
+        "disease": "Not a Plant",
+        "crop": "N/A",
+        "type": "Rejection",
+        "severity": "N/A",
+        "cause": "Uploaded image is not a plant leaf",
+        "symptoms": [
+            "not a plant",
+            "non-plant image",
+            "unrelated image"
+        ],
+        "treatment": [
+            "Please upload a clear image of a plant leaf",
+            "Ensure the image shows a leaf, not other objects"
+        ],
+        "prevention": [
+            "Use well-lit, focused photos of plant leaves",
+            "Avoid uploading non-plant images"
         ]
     },
 ]

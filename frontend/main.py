@@ -8,7 +8,8 @@ sys.path.insert(0, PROJECT_ROOT)
 import streamlit as st
 import torch
 import torch.nn.functional as F
-from torchvision import models, transforms
+from torchvision import transforms
+import timm
 from PIL import Image
 
 from backend import text_diagnosis, process_voice_input
@@ -16,7 +17,7 @@ from database import get_treatment, format_treatment_response, get_uncertain_res
 import tempfile
 
 # ---------------- CONFIG ----------------
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "resnet50_plantvillage_checkpoint.pth")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "resnet50_plantvillage_checkpoint1.pth")
 IMG_SIZE = 224
 
 st.set_page_config(
@@ -212,45 +213,21 @@ def _process_audio_data(audio_data: bytes, suffix: str = ".wav"):
 
 
 # ---------------- LOAD MODEL ----------------
-# PlantVillage class names in alphabetical order (standard DataLoader ordering)
-PLANTVILLAGE_CLASSES = [
-    "Pepper__bell___Bacterial_spot",
-    "Pepper__bell___healthy",
-    "Potato___Early_blight",
-    "Potato___Late_blight",
-    "Potato___healthy",
-    "Tomato___Bacterial_spot",
-    "Tomato___Early_blight",
-    "Tomato___Late_blight",
-    "Tomato___Leaf_Mold",
-    "Tomato___Septoria_leaf_spot",
-    "Tomato___Spider_mites Two-spotted_spider_mite",
-    "Tomato___Target_Spot",
-    "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
-    "Tomato___Tomato_mosaic_virus",
-    "Tomato___healthy",
-]
-
 @st.cache_resource
 def load_model():
     checkpoint = torch.load(MODEL_PATH, map_location="cpu")
     state_dict = checkpoint["model_state_dict"]
 
-    num_classes = state_dict["fc.weight"].shape[0]
-    
-    # Use explicit class names if they match, else fallback
-    if num_classes == len(PLANTVILLAGE_CLASSES):
-        class_names = PLANTVILLAGE_CLASSES
-    else:
-        class_names = checkpoint.get("class_names", [])[:num_classes]
-        if not class_names:
-            from database import get_all_disease_keys
-            class_names = get_all_disease_keys()[:num_classes]
-            if len(class_names) < num_classes:
-                class_names.extend([f"Disease_{i}" for i in range(len(class_names), num_classes)])
+    # Get class mappings from checkpoint
+    class_to_idx = checkpoint["class_to_idx"]
+    idx_to_class = checkpoint["idx_to_class"]
+    num_classes = len(class_to_idx)
 
-    model = models.resnet50(pretrained=False)
-    model.fc = torch.nn.Linear(2048, num_classes)
+    # Build ordered class_names list from idx_to_class
+    class_names = [idx_to_class[i] for i in range(num_classes)]
+
+    # Create EfficientNetV2-Small model
+    model = timm.create_model('tf_efficientnetv2_s', pretrained=False, num_classes=num_classes)
     model.load_state_dict(state_dict, strict=True)
     model.eval()
 
@@ -316,8 +293,18 @@ with tab1:
             probs = F.softmax(outputs, dim=1)[0]
         
         pred_idx = torch.argmax(probs).item()
-        st.session_state.diagnosis_result["disease"] = class_names[pred_idx]
-        st.session_state.diagnosis_result["confidence"] = probs[pred_idx].item()
+        predicted_class = class_names[pred_idx]
+        confidence = probs[pred_idx].item()
+
+        # Guard: reject non-plant images
+        if predicted_class == "Not_a_Plant":
+            st.error("❌ Not a plant leaf. Please upload a plant image.")
+            st.stop()
+        elif confidence < 0.6:
+            st.warning(f"⚠️ Low confidence ({confidence*100:.1f}%). Upload a clearer image.")
+
+        st.session_state.diagnosis_result["disease"] = predicted_class
+        st.session_state.diagnosis_result["confidence"] = confidence
         st.session_state.diagnosis_result["source"] = "Image Analysis"
         st.session_state.diagnosis_result["top3"] = torch.topk(probs, min(3, len(class_names)))
 
