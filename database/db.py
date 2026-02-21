@@ -5,6 +5,79 @@ import os
 from .models import get_connection, DB_PATH, create_tables
 
 
+# ============================================================================
+# Model Class Name → Database Disease Key Mapping
+# ============================================================================
+# The model (Train3, EfficientNetV2-S) was trained on combined PlantDoc +
+# PlantVillage datasets. The ImageFolder class names (model output) differ
+# from the standardised disease_key values used in seed.py.
+#
+# This mapping translates every model output class name to its matching
+# database disease_key so that treatment lookups always succeed.
+# ============================================================================
+
+MODEL_CLASS_TO_DB_KEY = {
+    # ---- Apple ----
+    "Apple Scab Leaf":              "Apple___Apple_scab",
+    "Apple leaf":                   "Apple___healthy",
+    "Apple rust leaf":              "Apple___Cedar_apple_rust",
+    # ---- Bell Pepper ----
+    "Bell_pepper leaf":             "Pepper__bell___healthy",
+    "Bell_pepper leaf spot":        "Pepper__bell___Bacterial_spot",
+    # ---- Blueberry ----
+    "Blueberry leaf":               "Blueberry___healthy",
+    # ---- Cherry ----
+    "Cherry leaf":                  "Cherry___Powdery_mildew",
+    # ---- Corn ----
+    "Corn Gray leaf spot":          "Corn___Cercospora_leaf_spot",
+    "Corn leaf blight":             "Corn___Northern_Leaf_Blight",
+    "Corn rust leaf":               "Corn___Common_rust",
+    # ---- Grape ----
+    "grape leaf":                   "Grape___healthy",
+    "grape leaf black rot":         "Grape___Black_rot",
+    # ---- Not a Plant ----
+    "Not_a_Plant":                  "Not_a_Plant",
+    # ---- Peach ----
+    "Peach leaf":                   "Peach___Bacterial_spot",
+    # ---- Potato ----
+    "Potato leaf early blight":     "Potato___Early_blight",
+    "Potato leaf late blight":      "Potato___Late_blight",
+    # ---- Raspberry ----
+    "Raspberry leaf":               "Raspberry___healthy",
+    # ---- Soybean ----
+    "Soyabean leaf":                "Soybean___healthy",
+    # ---- Squash ----
+    "Squash Powdery mildew leaf":   "Squash___Powdery_mildew",
+    # ---- Strawberry ----
+    "Strawberry leaf":              "Strawberry___Leaf_scorch",
+    # ---- Tomato ----
+    "Tomato Early blight leaf":     "Tomato___Early_blight",
+    "Tomato Septoria leaf spot":    "Tomato___Septoria_leaf_spot",
+    "Tomato leaf":                  "Tomato___healthy",
+    "Tomato leaf bacterial spot":   "Tomato___Bacterial_spot",
+    "Tomato leaf late blight":      "Tomato___Late_blight",
+    "Tomato leaf mosaic virus":     "Tomato___Tomato_mosaic_virus",
+    "Tomato leaf yellow virus":     "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+    "Tomato mold leaf":             "Tomato___Leaf_Mold",
+}
+
+
+def resolve_disease_key(model_class_name: str) -> str:
+    """
+    Convert a model output class name to the corresponding database disease_key.
+
+    If the name is already a valid database key (e.g. 'Tomato___Early_blight'),
+    it is returned unchanged.  Otherwise the MODEL_CLASS_TO_DB_KEY mapping is
+    consulted.  If no mapping exists, the original name is returned as-is so
+    that the downstream fallback in get_treatment_info() can still handle it.
+    """
+    # Direct hit in mapping
+    if model_class_name in MODEL_CLASS_TO_DB_KEY:
+        return MODEL_CLASS_TO_DB_KEY[model_class_name]
+    # Already a valid DB key (e.g. from older code paths)
+    return model_class_name
+
+
 def init_db():
     """Initialize the database (create tables if not exist)."""
     if not os.path.exists(DB_PATH):
@@ -110,7 +183,9 @@ def get_all_disease_keys() -> list[str]:
 def get_treatment_info(disease_key: str, confidence: float = None) -> dict:
     """
     Get treatment info — compatible with knowledge/treatments.py format.
+    Automatically resolves model class names to database keys.
     """
+    disease_key = resolve_disease_key(disease_key)
     info = get_disease(disease_key)
 
     # Determine confidence level
@@ -157,7 +232,9 @@ def get_treatment_info(disease_key: str, confidence: float = None) -> dict:
 def format_treatment_response_db(disease_key: str, confidence: float = None) -> str:
     """
     Format treatment info as markdown — same output as knowledge layer.
+    Automatically resolves model class names to database keys.
     """
+    disease_key = resolve_disease_key(disease_key)
     info = get_treatment_info(disease_key, confidence)
 
     response = f"🌱 **{info['disease']}**\n\n"

@@ -8,4 +8,5 @@ from .db import (
     format_treatment_response_db as format_treatment_response,
     log_unknown_case,
     get_uncertain_response,
+    resolve_disease_key,
 )

@@ -7,9 +7,9 @@
 ## ✨ Key Features
 
 ### 1. 📷 Image Diagnosis (Offline / Local)
-- **Model:** EfficientNetV2-Small (PyTorch + timm) trained on the PlantVillage dataset.
+- **Model:** EfficientNetV2-Small (PyTorch + timm) trained on PlantVillage + PlantDoc datasets.
 - **Function:** Upload a leaf image → Model predicts the disease class locally.
-- **Classes:** Supports **16 classes** (Tomato, Potato, Pepper + Not_a_Plant rejection).
+- **Classes:** Supports **28 classes** across **13+ crops** (Apple, Blueberry, Cherry, Corn, Grape, Peach, Pepper, Potato, Raspberry, Soybean, Squash, Strawberry, Tomato + Not_a_Plant rejection).
 - **Features:** Shows top-3 prediction confidence percentages.
 
 ### 2. 🎤 Voice Assistant (Hybrid)
@@ -187,7 +187,7 @@ Intern-PlantChatBot-Project/
 │   └── plantdocbot.db                 # SQLite database file
 │
 ├── 📂 models/                         # Trained ML models
-│   └── resnet50_plantvillage_checkpoint1.pth # EfficientNetV2-S weights (16 classes)
+│   └── resnet50_plantvillage_checkpoint1.pth # EfficientNetV2-S weights (28 classes)
 │
 ├── 📂 testing_data/                   # Test data samples
 │   ├── *.JPG                          # Sample leaf images
@@ -197,8 +197,9 @@ Intern-PlantChatBot-Project/
 │
 ├── 📂 .git/                           # Git repository
 │
-├── 📄 train.ipynb                     # Model training notebook
-└── 📄 train2.ipynb                    # Secondary training notebook
+├── 📄 train.ipynb                     # v1 Training notebook (initial experiments)
+├── 📄 train2.ipynb                    # v2 Training — ResNet50, 15 classes, PlantVillage only
+└── 📄 Train3.ipynb                    # v3 Training — EfficientNetV2-S, 28 classes, PlantVillage + PlantDoc
 ```
 
 ---
@@ -219,8 +220,9 @@ Main application and configuration files:
 | `Dockerfile` | Docker image build configuration |
 | `docker-compose.yml` | Docker Compose orchestration |
 | `.dockerignore` | Files excluded from Docker context |
-| `train.ipynb` | Model training notebook |
-| `train2.ipynb` | Secondary training notebook |
+| `train.ipynb` | v1 Training notebook (initial experiments) |
+| `train2.ipynb` | v2 Training — ResNet50, 15 classes, PlantVillage only |
+| `Train3.ipynb` | v3 Training — EfficientNetV2-S, 28 classes, PlantVillage + PlantDoc |
 
 ### `/frontend/`
 Frontend module containing additional UI components:
@@ -261,11 +263,12 @@ SQLite database persistence layer with disease knowledge:
 | `plantdocbot.db` | SQLite database file with all disease information |
 
 **Key Functions:**
-- `get_treatment()` - Retrieve treatment info with confidence handling
-- `format_treatment_response()` - Format treatment as markdown
-- `get_uncertain_response()` - Handle low-confidence predictions
-- `get_all_disease_keys()` - Get list of all supported diseases
-- `init_db()` - Initialize database with tables and seed data
+- `get_treatment()` — Retrieve treatment info with confidence handling
+- `format_treatment_response()` — Format treatment as markdown
+- `resolve_disease_key()` — Map model output class names → database keys
+- `get_uncertain_response()` — Handle low-confidence predictions
+- `get_all_disease_keys()` — Get list of all supported diseases
+- `init_db()` — Initialize database with tables and seed data
 
 **Database Schema:**
 - `diseases` - Disease definitions (key, name, crop, type, severity, cause)
@@ -279,25 +282,40 @@ Trained machine learning models:
 
 | File | Purpose |
 |------|---------|
-| `resnet50_plantvillage_checkpoint1.pth` | EfficientNetV2-Small trained on PlantVillage (16 classes) |
+| `resnet50_plantvillage_checkpoint1.pth` | EfficientNetV2-Small trained on PlantVillage + PlantDoc (28 classes) |
 
-**Model Classes (16 total):**
-1. Pepper__bell___Bacterial_spot
-2. Pepper__bell___healthy
-3. Potato___Early_blight
-4. Potato___Late_blight
-5. Potato___healthy
-6. Tomato___Bacterial_spot
-7. Tomato___Early_blight
-8. Tomato___Late_blight
-9. Tomato___Leaf_Mold
-10. Tomato___Septoria_leaf_spot
-11. Tomato___Spider_mites Two-spotted_spider_mite
-12. Tomato___Target_Spot
-13. Tomato___Tomato_Yellow_Leaf_Curl_Virus
-14. Tomato___Tomato_mosaic_virus
-15. Tomato___healthy
-16. Not_a_Plant _(rejection class)_
+**Model Classes (28 total across 13 crops + rejection):**
+
+| # | Class Name | Mapped Disease |
+|---|-----------|----------------|
+| 1 | Apple Scab Leaf | Apple Scab |
+| 2 | Apple leaf | Apple Healthy |
+| 3 | Apple rust leaf | Cedar Apple Rust |
+| 4 | Bell_pepper leaf | Bell Pepper Healthy |
+| 5 | Bell_pepper leaf spot | Bell Pepper Bacterial Spot |
+| 6 | Blueberry leaf | Blueberry Healthy |
+| 7 | Cherry leaf | Cherry Powdery Mildew |
+| 8 | Corn Gray leaf spot | Corn Cercospora |
+| 9 | Corn leaf blight | Corn Northern Leaf Blight |
+| 10 | Corn rust leaf | Corn Common Rust |
+| 11 | Not_a_Plant | _(rejection class)_ |
+| 12 | Peach leaf | Peach Bacterial Spot |
+| 13 | Potato leaf early blight | Potato Early Blight |
+| 14 | Potato leaf late blight | Potato Late Blight |
+| 15 | Raspberry leaf | Raspberry Healthy |
+| 16 | Soyabean leaf | Soybean Healthy |
+| 17 | Squash Powdery mildew leaf | Squash Powdery Mildew |
+| 18 | Strawberry leaf | Strawberry Leaf Scorch |
+| 19 | Tomato Early blight leaf | Tomato Early Blight |
+| 20 | Tomato Septoria leaf spot | Tomato Septoria |
+| 21 | Tomato leaf | Tomato Healthy |
+| 22 | Tomato leaf bacterial spot | Tomato Bacterial Spot |
+| 23 | Tomato leaf late blight | Tomato Late Blight |
+| 24 | Tomato leaf mosaic virus | Tomato Mosaic Virus |
+| 25 | Tomato leaf yellow virus | Tomato Yellow Leaf Curl |
+| 26 | Tomato mold leaf | Tomato Leaf Mold |
+| 27 | grape leaf | Grape Healthy |
+| 28 | grape leaf black rot | Grape Black Rot |
 
 ### `/testing_data/`
 Sample test data for development and testing:
@@ -319,6 +337,48 @@ Streamlit configuration:
 - Primary Color: #2e7d32 (Green)
 - Background: #ffffff (White)
 - Font: Sans Serif
+
+---
+
+## 🧠 Model Training Journey
+
+### v2 — ResNet50 on PlantVillage (`train2.ipynb`)
+
+| Aspect | Detail |
+|--------|--------|
+| **Architecture** | ResNet50 (torchvision, pretrained) |
+| **Dataset** | [PlantVillage](https://www.kaggle.com/datasets/emmarex/plantdisease) — lab-controlled images |
+| **Classes** | 15 (Tomato, Potato, Pepper only) |
+| **Training** | SGD, 15 epochs, basic augmentation |
+| **Test Accuracy** | **99.9%** |
+
+> [!WARNING]
+> The 99.9% accuracy was **misleading** — PlantVillage images are taken in controlled lab conditions with uniform backgrounds. The model failed on real-world, diverse images.
+
+### v3 — EfficientNetV2-S on PlantVillage + PlantDoc (`Train3.ipynb`) ✅
+
+| Aspect | Detail |
+|--------|--------|
+| **Architecture** | EfficientNetV2-Small (timm, pretrained on ImageNet) |
+| **Datasets** | [PlantVillage](https://www.kaggle.com/datasets/emmarex/plantdisease) + [PlantDoc](https://www.kaggle.com/datasets/abdulhasibuddin/plant-doc-dataset) + Not_a_Plant (ImageNet subset) |
+| **Classes** | **28** across **13 crops** + Not_a_Plant rejection |
+| **Training** | 40 epochs, AdamW (lr=1e-3), CosineAnnealing, Label Smoothing (0.1), Mixed Precision |
+| **Augmentation** | RandomResizedCrop, ColorJitter, GaussianBlur, RandomErasing, RandomAffine |
+| **Val Accuracy** | **80.86%** |
+| **Not_a_Plant F1** | **0.99** (near-perfect non-plant rejection) |
+
+> [!IMPORTANT]
+> The v3 model accuracy is lower on paper (80.86% vs 99.9%), but it works **much better in the real world** because:
+> 1. PlantDoc images are taken with phones in fields — diverse backgrounds, lighting, angles
+> 2. Combined dataset forces the model to learn actual disease features, not lab backgrounds
+> 3. Not_a_Plant class (ImageNet subset) provides robust non-plant rejection (F1=0.99)
+
+### Key Improvements (v2 → v3)
+- **More Crops:** 3 → 13 (Apple, Blueberry, Cherry, Corn, Grape, Peach, Raspberry, Soybean, Squash, Strawberry)
+- **Better Architecture:** ResNet50 → EfficientNetV2-S (more efficient, better feature extraction)
+- **Real-world Data:** Lab-only → Lab + Field images
+- **Non-plant Rejection:** Added `Not_a_Plant` class to reject non-leaf uploads
+- **Training Techniques:** Label smoothing, CosineAnnealing LR, mixed precision
 
 ---
 
@@ -420,28 +480,50 @@ docker run -p 8501:8501 \
 
 ---
 
-## 🌱 Supported Diseases
+## 🌱 Supported Diseases (28 Classes, 13+ Crops)
 
-### Tomato (10 classes)
+### 🍎 Apple (3)
+- 🍄 Apple Scab · 🍄 Cedar Apple Rust · ✅ Healthy
+
+### 🫐 Blueberry (1)
+- ✅ Healthy
+
+### 🍒 Cherry (1)
+- 🍄 Powdery Mildew
+
+### 🌽 Corn (3)
+- 🍄 Cercospora (Gray Leaf Spot) · 🍄 Northern Leaf Blight · 🍄 Common Rust
+
+### 🍇 Grape (2)
+- 🍄 Black Rot · ✅ Healthy
+
+### 🍑 Peach (1)
 - 🦠 Bacterial Spot
-- 🍄 Early Blight
-- 🍄 Late Blight
-- 🍄 Leaf Mold
-- 🍄 Septoria Leaf Spot
-- 🕷️ Spider Mites (Two-spotted)
-- 🎯 Target Spot
-- 🦠 Yellow Leaf Curl Virus
-- 🦠 Mosaic Virus
+
+### 🫑 Pepper (2)
+- 🦠 Bacterial Spot · ✅ Healthy
+
+### 🥔 Potato (2)
+- 🍄 Early Blight · 🍄 Late Blight
+
+### 🫐 Raspberry (1)
 - ✅ Healthy
 
-### Potato (3 classes)
-- 🍄 Early Blight
-- 🍄 Late Blight
+### 🌱 Soybean (1)
 - ✅ Healthy
 
-### Pepper (2 classes)
-- 🦠 Bacterial Spot
-- ✅ Healthy
+### 🎃 Squash (1)
+- 🍄 Powdery Mildew
+
+### 🍓 Strawberry (1)
+- 🍄 Leaf Scorch
+
+### 🍅 Tomato (8)
+- 🦠 Bacterial Spot · 🍄 Early Blight · 🍄 Late Blight · 🍄 Leaf Mold
+- 🍄 Septoria Leaf Spot · 🦠 Mosaic Virus · 🦠 Yellow Leaf Curl Virus · ✅ Healthy
+
+### 🚫 Not a Plant (1)
+- Rejection class — non-plant images are detected and rejected
 
 ---
 
@@ -524,7 +606,7 @@ flask --app backend.api run --port 5000
 | Issue | Solution |
 |-------|----------|
 | **"FFmpeg not found"** | Install FFmpeg and add to PATH |
-| **"Model file not found"** | Verify `models/resnet50_*.pth` exists (~100MB) |
+| **"Model file not found"** | Verify `models/resnet50_plantvillage_checkpoint1.pth` exists (~78MB) |
 | **"Groq API Error"** | Check `.env` file for valid `gsk_` key |
 | **Whisper download fails** | Check internet connection; model auto-downloads |
 | **Database errors** | Run `init_db()` to recreate tables |
@@ -580,11 +662,13 @@ MIT License - see [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [PlantVillage Dataset](https://github.com/spMohanty/PlantVillage-Dataset)
-- [Groq](https://groq.com) - LLM API
-- [Streamlit](https://streamlit.io) - UI Framework
-- [PyTorch](https://pytorch.org) - Deep Learning
-- [OpenAI Whisper](https://github.com/openai/whisper) - Speech Recognition
+- [PlantVillage Dataset](https://www.kaggle.com/datasets/emmarex/plantdisease) — Primary disease image dataset
+- [PlantDoc Dataset](https://www.kaggle.com/datasets/abdulhasibuddin/plant-doc-dataset) — Real-world leaf images for diversity
+- [timm (PyTorch Image Models)](https://github.com/huggingface/pytorch-image-models) — EfficientNetV2-S architecture
+- [Groq](https://groq.com) — LLM API
+- [Streamlit](https://streamlit.io) — UI Framework
+- [PyTorch](https://pytorch.org) — Deep Learning
+- [OpenAI Whisper](https://github.com/openai/whisper) — Speech Recognition
 
 ---
 
