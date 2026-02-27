@@ -1,0 +1,20 @@
+/* Background image */
+.stApp {
+    background-image: url("assets/bg.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+/* Main content box */
+.block-container {
+    background-color: rgba(0, 0, 0, 0.55);
+    padding: 2rem;
+    border-radius: 15px;
+}
+
+/* Text color */
+h1, h2, h3, p, label, span {
+    color: white !important;
+}
