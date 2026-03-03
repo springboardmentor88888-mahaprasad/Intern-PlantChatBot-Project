@@ -373,7 +373,9 @@ else:
         confidence = result["confidence"]
         source = result["source"]
         
-        if disease and disease != "Unknown":
+        if disease == NOT_A_PLANT_CLASS:
+            st.error("❌ **Not a Plant.** The input does not appear to describe a plant or plant disease.")
+        elif disease and disease != "Unknown":
             # Determine confidence level for image mode
             if current_mode == "image" and confidence:
                 if confidence >= CONFIDENCE_HIGH:
