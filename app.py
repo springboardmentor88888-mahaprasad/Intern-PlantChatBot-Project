@@ -272,31 +272,49 @@ with tab1:
 
 with tab2:
     st.subheader("Voice Assistant")
-    audio_file = st.file_uploader(
-        "Upload an audio file describing symptoms",
-        type=["mp3", "wav", "m4a", "ogg"],
-        key=f"voice_upload_{st.session_state.uploader_key}"
-    )
     
-    if audio_file:
-        set_mode("voice")
-        st.audio(audio_file)
-        
-        with st.spinner("Analyzing your voice..."):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(audio_file.name)[1]) as tmp:
-                tmp.write(audio_file.getvalue())
-                tmp_path = tmp.name
-            try:
-                result = process_voice_input(tmp_path)
-                if result["error"]:
-                    st.error(result["error"])
-                else:
-                    st.session_state.diagnosis_result["transcription"] = result["transcription"]
-                    st.session_state.diagnosis_result["disease"] = result["disease_key"]
-                    st.session_state.diagnosis_result["source"] = "Voice Symptoms"
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
+    st.info("🎙️ **Record your voice** to describe the plant's symptoms, or use the uploader below.")
+
+    # 1. Primary input: Live Recording
+    recorded_audio = st.audio_input(
+        "Click to Record",
+        key=f"audio_record_{st.session_state.uploader_key}"
+    )
+
+    # 2. Secondary input: File Uploader (hidden inside an expander so it's small)
+    with st.expander("📁 Or upload a pre-recorded file (mp3, wav, m4a, ogg)"):
+        uploaded_audio = st.file_uploader(
+            "Upload audio file",
+            type=["mp3", "wav", "m4a", "ogg"],
+            key=f"voice_upload_{st.session_state.uploader_key}",
+            label_visibility="collapsed"
+        )
+
+    # Determine which audio source to use (prioritize live recording)
+    audio_to_process = recorded_audio if recorded_audio else uploaded_audio
+
+    # 3. Explicit Submit Button
+    if audio_to_process:
+        if st.button("🚀 Analyze Voice", key="submit_voice_btn", use_container_width=True):
+            set_mode("voice")
+            
+            with st.spinner("Analyzing your voice..."):
+                ext = ".wav" if recorded_audio else os.path.splitext(audio_to_process.name)[1]
+                with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                    tmp.write(audio_to_process.getvalue())
+                    tmp_path = tmp.name
+                
+                try:
+                    result = process_voice_input(tmp_path)
+                    if result["error"]:
+                        st.error(result["error"])
+                    else:
+                        st.session_state.diagnosis_result["transcription"] = result["transcription"]
+                        st.session_state.diagnosis_result["disease"] = result["disease_key"]
+                        st.session_state.diagnosis_result["source"] = "Voice Symptoms"
+                finally:
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
 
 with tab3:
     st.subheader("Manual Description")

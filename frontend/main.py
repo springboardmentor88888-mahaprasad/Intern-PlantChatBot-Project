@@ -305,50 +305,43 @@ with tab1:
 with tab2:
     st.subheader("Voice Assistant")
     
-    # Toggle between upload and record
-    voice_mode = st.radio(
-        "Choose input method:",
-        ["📁 Upload File", "🎙️ Record Voice"],
-        horizontal=True,
-        key="voice_mode_selector"
+    st.info("🎙️ **Record your voice** to describe the plant's symptoms, or use the uploader below.")
+
+    # 1. Primary input: Live Recording
+    recorded_audio = st.audio_input(
+        "Click to Record",
+        key=f"audio_record_{st.session_state.uploader_key}"
     )
-    
-    if voice_mode == "📁 Upload File":
-        # ---- Upload pre-recorded audio OR video ----
-        audio_file = st.file_uploader(
-            "Upload an audio or video file describing symptoms",
+
+    # 2. Secondary input: File Uploader (hidden inside an expander so it's small)
+    with st.expander("📁 Or upload a pre-recorded file (mp3, wav, m4a, ogg, mp4, mov, avi, mkv, webm)"):
+        uploaded_audio = st.file_uploader(
+            "Upload audio or video file",
             type=["mp3", "wav", "m4a", "ogg", "mp4", "mov", "avi", "mkv", "webm"],
-            key=f"voice_upload_{st.session_state.uploader_key}"
+            key=f"voice_upload_{st.session_state.uploader_key}",
+            label_visibility="collapsed"
         )
         
-        if audio_file:
-            set_mode("voice")
-            file_ext = os.path.splitext(audio_file.name)[1].lower()
-            
+        if uploaded_audio:
             # Show audio player for audio files, video player for video files
+            file_ext = os.path.splitext(uploaded_audio.name)[1].lower()
             video_extensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"]
             if file_ext in video_extensions:
-                st.video(audio_file)
+                st.video(uploaded_audio)
             else:
-                st.audio(audio_file)
+                st.audio(uploaded_audio)
+
+    # Determine which audio source to use (prioritize live recording)
+    audio_to_process = recorded_audio if recorded_audio else uploaded_audio
+
+    # 3. Explicit Submit Button
+    if audio_to_process:
+        if st.button("🚀 Analyze Voice", key="submit_voice_btn", use_container_width=True):
+            set_mode("voice")
             
             with st.spinner("Analyzing your voice..."):
-                _process_audio_data(audio_file.getvalue(), suffix=file_ext)
-    
-    else:
-        # ---- Record voice directly ----
-        st.write("Click the microphone icon below to start recording:")
-        recorded_audio = st.audio_input(
-            "🎙️ Record your symptom description",
-            key=f"audio_record_{st.session_state.uploader_key}"
-        )
-        
-        if recorded_audio:
-            set_mode("voice")
-            st.audio(recorded_audio)
-            
-            with st.spinner("Analyzing your recording..."):
-                _process_audio_data(recorded_audio.getvalue(), suffix=".wav")
+                ext = ".wav" if recorded_audio else os.path.splitext(audio_to_process.name)[1].lower()
+                _process_audio_data(audio_to_process.getvalue(), suffix=ext)
 
 with tab3:
     st.subheader("Manual Description")
