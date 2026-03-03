@@ -1,64 +1,33 @@
-# Docker Compose configuration for PlantDocBot
-# TODO: Replace placeholder comments with your actual implementation
-
-version: '3.8'
+# ==============================================================================
+# PlantDocBot — Docker Compose
+# Usage:
+#   1. Copy .env.example to .env and set GROQ_API_KEY
+#   2. docker compose up --build
+# ==============================================================================
 
 services:
-  # TODO: Define your main application service
-  # plantdocbot:
-  #   build: .
-  #   container_name: plantdocbot
-  #   
-  #   # TODO: Map ports (host:container)
-  #   ports:
-  #     - "8501:8501"
-  #   
-  #   # TODO: Set environment variables
-  #   environment:
-  #     - GROQ_API_KEY=${GROQ_API_KEY}
-  #     - STREAMLIT_SERVER_PORT=8501
-  #     - STREAMLIT_SERVER_ADDRESS=0.0.0.0
-  #   
-  #   # TODO: Mount volumes for persistent data
-  #   volumes:
-  #     - ./models:/app/models
-  #     - ./knowledge:/app/knowledge
-  #     - ./data:/app/data
-  #   
-  #   # TODO: Configure restart policy
-  #   restart: unless-stopped
-  #   
-  #   # TODO: Add health check
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s
+  plantdocbot:
+    build: .
+    container_name: plantdocbot
+    ports:
+      - "8501:8501" # Streamlit UI
+      - "5000:5000" # FastAPI (optional)
+    env_file:
+      - .env
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    volumes:
+      - model_cache:/app/models # persist model so it doesn't re-download
+      - db_data:/app/database # persist SQLite DB
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8501/_stcore/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
-  # TODO: Add additional services if needed (e.g., database, cache)
-  # database:
-  #   image: sqlite:latest
-  #   volumes:
-  #     - db_data:/app/database
-  #   
-  # redis:
-  #   image: redis:alpine
-  #   ports:
-  #     - "6379:6379"
-
-# TODO: Define named volumes if using
-# volumes:
-#   db_data:
-#   model_cache:
-
-# TODO: Define networks if needed
-# networks:
-#   plantdocbot_network:
-#     driver: bridge
-
-# NOTE: This is a template docker-compose.yml.
-# Uncomment and customize the sections above based on your requirements.
-# Remember to create a .env file with your GROQ_API_KEY before running:
-#   echo "GROQ_API_KEY=your_key_here" > .env
-#   docker-compose up --build
+volumes:
+  model_cache:
+  db_data:
