@@ -11,3 +11,4 @@ uvicorn[standard]
 python-multipart
 openai
 timm>=0.9.12
+huggingface_hub
