@@ -4,6 +4,7 @@ import os
 import glob
 import shutil
 import whisper
+from config import WHISPER_MODEL_SIZE
 
 # ============================================================================
 # FFmpeg Path Setup
@@ -39,10 +40,10 @@ _ensure_ffmpeg_in_path()
 _model = None
 
 def get_whisper_model():
-    """Lazily load the Whisper model (tiny, ~75MB, downloaded on first use)."""
+    """Lazily load the Whisper model (downloaded on first use)."""
     global _model
     if _model is None:
-        _model = whisper.load_model("tiny")
+        _model = whisper.load_model(WHISPER_MODEL_SIZE)
     return _model
 
 

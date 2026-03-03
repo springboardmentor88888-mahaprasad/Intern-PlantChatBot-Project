@@ -6,7 +6,8 @@ pillow
 numpy
 python-dotenv
 groq
-flask
-flask-cors
+fastapi
+uvicorn[standard]
+python-multipart
 openai
 timm>=0.9.12

@@ -2,6 +2,8 @@
 
 **PlantDocBot** is a professional, AI-powered monolithic application for identifying plant diseases. It runs locally using **Streamlit** and combines offline Deep Learning models with online LLM capabilities to provide accurate diagnoses via Image, Voice, or Text.
 
+> All configuration is centralised in `config/settings.py` — no hardcoded values in application code.
+
 ---
 
 ## ✨ Key Features
@@ -172,12 +174,16 @@ Intern-PlantChatBot-Project/
 │
 ├── 📂 backend/                        # Backend business logic
 │   ├── __init__.py                    # Module exports
-│   ├── api.py                         # Flask REST API endpoints
-│   ├── app.py                         # Flask app initialization
+│   ├── api.py                         # FastAPI REST API endpoints
+│   ├── app.py                         # Voice processing pipeline
 │   ├── chatbot.py                     # Chatbot response generator
 │   ├── symptom_matcher.py             # Text/voice symptom classification
 │   ├── voice_handler.py               # Whisper audio transcription
 │   └── groq_fallback.py               # Groq API integration
+│
+├── 📂 config/                          # Centralized configuration
+│   ├── __init__.py                    # Re-exports from settings
+│   └── settings.py                    # All config loaded from .env
 │
 ├── 📂 database/                       # Database layer (SQLite)
 │   ├── __init__.py                    # Module initialization & exports
@@ -233,13 +239,13 @@ Frontend module containing additional UI components:
 | `main.py` | Additional frontend utilities and components |
 
 ### `/backend/`
-Core business logic layer with Flask API:
+Core business logic layer with FastAPI:
 
 | File | Purpose |
 |------|---------|
 | `__init__.py` | Module exports and initialization |
-| `api.py` | Flask REST API endpoints for HTTP requests |
-| `app.py` | Flask application initialization and setup |
+| `api.py` | FastAPI REST API endpoints for HTTP requests |
+| `app.py` | Voice processing pipeline |
 | `chatbot.py` | Chatbot response generator and conversation logic |
 | `symptom_matcher.py` | Text/voice symptom classification using Groq API |
 | `voice_handler.py` | OpenAI Whisper integration for speech-to-text |
@@ -387,7 +393,7 @@ Streamlit configuration:
 | Component | Technology | Role |
 |-----------|------------|------|
 | **Core Framework** | Streamlit | UI & Application Logic |
-| **Backend API** | Flask + Flask-CORS | REST API endpoints |
+| **Backend API** | FastAPI + Uvicorn | REST API endpoints (auto-docs at /docs) |
 | **Deep Learning** | PyTorch / timm | Image Classification (EfficientNetV2-S) |
 | **Speech-to-Text** | OpenAI Whisper | Local Audio Transcription |
 | **LLM / API** | Groq (`llama-3.3-70b-versatile`) | Semantic Symptom Analysis |
@@ -585,18 +591,20 @@ response = format_treatment_response("Tomato___Late_blight", confidence=0.85)
 ### Flask API Endpoints
 
 ```python
-# Start Flask API
-python -m backend.api
+# Start FastAPI
+uvicorn backend.api:app --host 0.0.0.0 --port 5000
 
 # Or
-flask --app backend.api run --port 5000
+python -m backend.api
+
+# Interactive docs: http://localhost:5000/docs
 
 # Available endpoints:
-# POST /api/diagnose/image      - Image diagnosis
-# POST /api/diagnose/text       - Text diagnosis
-# POST /api/diagnose/voice      - Voice diagnosis
+# GET  /api/health              - Health check
+# POST /api/diagnose/text       - Text diagnosis (JSON body)
+# POST /api/diagnose/voice      - Voice diagnosis (multipart file)
+# POST /api/diagnose/image      - Image diagnosis (multipart file)
 # GET  /api/diseases            - List all diseases
-# GET  /api/diseases/<key>      - Get disease details
 ```
 
 ---

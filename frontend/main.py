@@ -14,11 +14,11 @@ from PIL import Image
 
 from backend import text_diagnosis, process_voice_input
 from database import get_treatment, format_treatment_response, get_uncertain_response
+from config import (
+    MODEL_PATH, MODEL_ARCH, IMG_SIZE, IMG_MEAN, IMG_STD,
+    NOT_A_PLANT_CLASS, CONFIDENCE_LOW, CONFIDENCE_HIGH, CONFIDENCE_MODERATE,
+)
 import tempfile
-
-# ---------------- CONFIG ----------------
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "resnet50_plantvillage_checkpoint1.pth")
-IMG_SIZE = 224
 
 st.set_page_config(
     page_title="PlantDocBot | AI Diagnosis",
@@ -218,16 +218,13 @@ def load_model():
     checkpoint = torch.load(MODEL_PATH, map_location="cpu")
     state_dict = checkpoint["model_state_dict"]
 
-    # Get class mappings from checkpoint
     class_to_idx = checkpoint["class_to_idx"]
     idx_to_class = checkpoint["idx_to_class"]
     num_classes = len(class_to_idx)
 
-    # Build ordered class_names list from idx_to_class
     class_names = [idx_to_class[i] for i in range(num_classes)]
 
-    # Create EfficientNetV2-Small model
-    model = timm.create_model('tf_efficientnetv2_s', pretrained=False, num_classes=num_classes)
+    model = timm.create_model(MODEL_ARCH, pretrained=False, num_classes=num_classes)
     model.load_state_dict(state_dict, strict=True)
     model.eval()
 
@@ -240,10 +237,7 @@ model, class_names = load_model()
 transform = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.ToTensor(),
-    transforms.Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225]
-    )
+    transforms.Normalize(mean=IMG_MEAN, std=IMG_STD),
 ])
 
 # ---------------- UI HEADER ----------------
@@ -297,10 +291,10 @@ with tab1:
         confidence = probs[pred_idx].item()
 
         # Guard: reject non-plant images
-        if predicted_class == "Not_a_Plant":
+        if predicted_class == NOT_A_PLANT_CLASS:
             st.error("❌ Not a plant leaf. Please upload a plant image.")
             st.stop()
-        elif confidence < 0.6:
+        elif confidence < CONFIDENCE_LOW:
             st.warning(f"⚠️ Low confidence ({confidence*100:.1f}%). Upload a clearer image.")
 
         st.session_state.diagnosis_result["disease"] = predicted_class
@@ -416,10 +410,10 @@ else:
         if disease and disease != "Unknown":
             # Determine confidence level for image mode
             if current_mode == "image" and confidence:
-                if confidence >= 0.8:
+                if confidence >= CONFIDENCE_HIGH:
                     conf_label = "High Confidence"
                     conf_color = "#2e7d32"
-                elif confidence >= 0.4:
+                elif confidence >= CONFIDENCE_MODERATE:
                     conf_label = "Moderate Confidence"
                     conf_color = "#f57c00"
                 else:
@@ -446,7 +440,7 @@ else:
             st.markdown(formatted_response)
         
         elif disease == "Unknown" or disease is None:
-            if current_mode == "image" and confidence and confidence < 0.4:
+            if current_mode == "image" and confidence and confidence < CONFIDENCE_MODERATE:
                 st.markdown("""
                 <div style="background-color: #fff3e0; padding: 20px; border-radius: 15px; border-left: 5px solid #ff9800;">
                     <h3 style="margin-top: 0; color: #e65100;">⚠️ Uncertain Diagnosis</h3>
