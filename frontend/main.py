@@ -215,28 +215,18 @@ def _process_audio_data(audio_data: bytes, suffix: str = ".wav"):
 # ---------------- LOAD MODEL ----------------
 @st.cache_resource
 def load_model():
-    checkpoint = torch.load(MODEL_PATH, map_location="cpu")
+    checkpoint = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
     state_dict = checkpoint["model_state_dict"]
 
-    import torch.nn as nn
-    model = timm.create_model(MODEL_ARCH, pretrained=False)
-    
-    # The original checkpoint replaces the `fc` layer manually.
-    if hasattr(model, 'fc'):
-        model.fc = nn.Linear(model.fc.in_features, 15)
-    elif hasattr(model, 'classifier'):
-         model.classifier = nn.Linear(model.classifier.in_features, 15)
-         
-    model.load_state_dict(state_dict, strict=False)
+    class_to_idx = checkpoint["class_to_idx"]
+    num_classes = len(class_to_idx)
+    idx_to_class = {v: k for k, v in class_to_idx.items()}
+    class_names = [idx_to_class[i] for i in range(num_classes)]
+
+    model = timm.create_model(MODEL_ARCH, pretrained=False, num_classes=num_classes)
+    model.load_state_dict(state_dict, strict=True)
     model.eval()
 
-    # Use class_to_idx from checkpoint if available, otherwise fallback
-    if 'class_to_idx' in checkpoint:
-        idx_to_class = {v: k for k, v in checkpoint['class_to_idx'].items()}
-    else:
-        idx_to_class = {i: str(i) for i in range(15)}
-        
-    class_names = [idx_to_class[i] for i in range(len(idx_to_class))]
     return model, class_names
 
 
