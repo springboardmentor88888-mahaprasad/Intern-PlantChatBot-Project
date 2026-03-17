@@ -24,9 +24,9 @@ else:
 # Model settings
 # ============================================================================
 MODEL_DIR = PROJECT_ROOT / "models"
-MODEL_FILENAME = os.getenv("MODEL_FILENAME", "resnet50_plantvillage_checkpoint1.pth")
+MODEL_FILENAME = os.getenv("MODEL_FILENAME", "resnet50_plantvillage_checkpoint.pth")
 MODEL_PATH = str(MODEL_DIR / MODEL_FILENAME)
-MODEL_ARCH = os.getenv("MODEL_ARCH", "tf_efficientnetv2_s")
+MODEL_ARCH = os.getenv("MODEL_ARCH", "resnet50")
 IMG_SIZE = int(os.getenv("IMG_SIZE", "224"))
 
 # HuggingFace repo for auto-downloading the model checkpoint
